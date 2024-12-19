@@ -1,0 +1,5 @@
+digraph "classes" {
+rankdir=BT
+charset="utf-8"
+"shotscale.general_mulitpose_model" [color="black", fontcolor="black", label=<{general_mulitpose_model|caffemodel<br ALIGN="LEFT"/>colors<br ALIGN="LEFT"/>map_idx<br ALIGN="LEFT"/>num_points : int<br ALIGN="LEFT"/>point_names<br ALIGN="LEFT"/>point_pairs<br ALIGN="LEFT"/>pose_net<br ALIGN="LEFT"/>prototxt<br ALIGN="LEFT"/>|detect_key_person(personwiseKeypoints, points_table)<br ALIGN="LEFT"/>getKeypoints(probMap, threshold)<br ALIGN="LEFT"/>getPersonwiseKeypoints(valid_pairs, invalid_pairs, keypoints_list)<br ALIGN="LEFT"/>getValidPairs(output, detected_keypoints, width, height)<br ALIGN="LEFT"/>get_model()<br ALIGN="LEFT"/>predict(imgfile)<br ALIGN="LEFT"/>shotscale_csv(detectInfo, savePath)<br ALIGN="LEFT"/>shotscale_plot(detectInfo, image_save)<br ALIGN="LEFT"/>shotsize(key_parts, min_y, max_y, height)<br ALIGN="LEFT"/>vis_pose(img_file, personwiseKeypoints, keypoints_list)<br ALIGN="LEFT"/>}>, shape="record", style="solid"];
+}
