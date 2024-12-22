@@ -10,7 +10,6 @@ from PySide2.QtCore import Qt
 from algorithms.objectDetection import ObjectDetection
 from algorithms.shotscale import ShotScale
 from algorithms.shotcutTransNetV2 import transNetV2_run
-from algorithms.subtitleEasyOcr import SubtitleProcessor
 from algorithms.CrewEasyOcr import CrewProcessor
 from algorithms.img2Colors import ColorAnalysis
 from ui.progressbar import pyqtbar
