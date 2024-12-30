@@ -211,11 +211,12 @@ class VLCPlayer(QtWidgets.QWidget):
         self.timer.stop()
         self.mediaplayer.set_position(pos / dict(self.parent.info.properties)['Frame count'])
         self.timer.start()
+        
+        # self.mediaplayer.play()
+        # self.playbutton.setIcon(self.icons['PAUSE'])
+        # self.timer.start()
+        # self.is_paused = False
 
-        self.mediaplayer.play()
-        self.playbutton.setIcon(self.icons['PAUSE'])
-        self.timer.start()
-        self.is_paused = False
     def update_ui(self):
         '''Updates the user interface'''
 
