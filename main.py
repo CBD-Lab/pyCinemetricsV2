@@ -26,8 +26,10 @@ class MainWindow(QMainWindow):
         # 创建线程池，用于处理多线程任务
         self.threadpool = ThreadPoolExecutor()
         self.filename = ''  # 当前文件名
-
+        self.frame_save = ""  # 图片存储路径
+        self.image_save = ""
         self.AnalyzeImgPath = ''  # Analyze窗口中要显示的图像的路径
+        self.colorsC = 2
         self.init_ui()  # 初始化界面
 
     def init_ui(self):
@@ -52,7 +54,7 @@ class MainWindow(QMainWindow):
         self.analyze = Analyze(self, self.filename)  # 分析窗口
         self.addDockWidget(Qt.RightDockWidgetArea, self.analyze)
 
-        self.timeline = Timeline(self, self.control.colorsC)  # 时间轴窗口
+        self.timeline = Timeline(self)  # 时间轴窗口
         self.addDockWidget(Qt.BottomDockWidgetArea, self.timeline)# 停靠到下侧
 
         # 创建菜单栏
@@ -111,8 +113,8 @@ class MainWindow(QMainWindow):
 
         # 调整停靠窗口的尺寸
         # 调整高度
-        self.resizeDocks([self.info, self.subtitle], [int(self.height() * 0.2), int(self.height() * 0.1)], Qt.Vertical)
-        self.resizeDocks([self.control, self.analyze], [int(self.height() * 0.2), int(self.height() * 0.1)], Qt.Vertical)
+        self.resizeDocks([self.info, self.subtitle], [int(self.height() * 0.3), int(self.height() * 0.2)], Qt.Vertical)
+        self.resizeDocks([self.control, self.analyze], [int(self.height() * 0.3), int(self.height() * 0.2)], Qt.Vertical)
 
         # 调整宽度
         self.resizeDocks([self.info, self.subtitle, self.control, self.analyze], [int(self.width() * 0.3)] * 4, Qt.Horizontal)
