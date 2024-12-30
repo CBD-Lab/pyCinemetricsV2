@@ -9,8 +9,21 @@ class Resultsave:
     # 其他方法保持不变...
 
     def diff_csv(self, diff, shot_len):
-        shotcut_csv = open(os.path.join(self.image_save_path, "shotcut.csv"), "w+", newline='')
-        shotlen_csv = open(os.path.join(self.image_save_path, "shotlen.csv"), "w+", newline='')
+        # 确定文件路径
+        shotcut_csv_path = os.path.join(self.image_save_path, "shotcut.csv")
+        shotlen_csv_path = os.path.join(self.image_save_path, "shotlen.csv")
+
+        # 如果文件已经存在，则删除它
+        if os.path.exists(shotcut_csv_path):
+            os.remove(shotcut_csv_path)
+
+        if os.path.exists(shotlen_csv_path):
+            os.remove(shotlen_csv_path)
+
+        # 然后再创建新文件
+        shotcut_csv = open(shotcut_csv_path, "w+", newline='')
+        shotlen_csv = open(shotlen_csv_path, "w+", newline='')
+        
         name1 = ['Id', 'frameDiff']
         name2 = ['start', 'end', 'length']
 
@@ -42,18 +55,20 @@ class Resultsave:
         plt.title('shot length',color="white")
         plt.savefig(os.path.join(self.image_save_path, 'shotlen.png'))
 
-    def color_csv(self, colors):
+    def color_csv(self, colors, colorsC):
         csv_file = open(os.path.join(self.image_save_path, "colors.csv"), "w+", newline='')
         name = ['FrameId']
-        for i in range(15):
+        for i in range(colorsC):
             name.append("Color" + str(i))
 
         try:
             writer = csv.writer(csv_file)
             writer.writerow(name)
+            # 遍历所有分镜帧
             for i in range(len(colors)):
+                # datarow为照片帧号
                 datarow = [colors[i][0][5:-4]]
-                for j in range(15):
+                for j in range(colorsC):
                     datarow.append(colors[i][1][j])
                 writer.writerow(datarow)
         finally:

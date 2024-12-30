@@ -11,11 +11,9 @@ from ui.progressbar import *
 
 class ShotScale(QThread):
     #  通过类成员对象定义信号对象
-    signal = Signal(int, int, int)
+    signal = Signal(int, int, int, str)
     #线程中断
     is_stop = 0
-    #二选一信号
-    signal2 = Signal(bool)
     # 线程结束信号
     finished = Signal(bool)
 
@@ -36,7 +34,7 @@ class ShotScale(QThread):
 
     def run(self):
         image_files = [f for f in os.listdir(self.frame_save) if f.endswith((".jpg", ".jpeg", ".png"))]
-        print(self.frame_save)
+        #print(self.frame_save)
         result = []
         # 进度条设置 shotscale
         task_id = 1
@@ -45,11 +43,11 @@ class ShotScale(QThread):
             if self.is_stop:
                 self.finished.emit(True)
                 break
-            print(img)
-            imgDetect, type, num = self.predict(self.frame_save + img)
+            print(self.frame_save + img)
+            imgDetect, type, num = self.predict(self.frame_save + '/'+img)
 
             percent = round(float(task_id / len(image_files)) * 100)
-            self.signal.emit(percent, task_id, len(image_files))  # 刷新进度条
+            self.signal.emit(percent, task_id, len(image_files), "shotscale")  # 刷新进度条
             task_id += 1
             # cv2.imshow("frame", imgDetect)
             # cv2.waitKey(0)
@@ -57,7 +55,7 @@ class ShotScale(QThread):
             print("Detected People:", num)
             frame_id = img.replace("frame", "").replace(".jpg", "").replace(".jpeg", "").replace(".png", "")
             result.append([frame_id, type, num])
-        self.signal.emit(101, 101, 101)  # 完事了再发一次
+        self.signal.emit(101, 101, 101, "shotscale")  # 完事了再发一次
         
         if self.is_stop:
             self.finished.emit(True)

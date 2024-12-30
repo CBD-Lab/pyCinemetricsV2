@@ -1,107 +1,121 @@
 import os
 import numpy as np
+import tensorflow as tf
 import cv2
-import torch
-import torch.nn as nn
-import torch.optim as optim
 from algorithms.resultsave import Resultsave
-from ui.progressbar import pyqtbar
 from ui.progressbar import *
-from algorithms.Transnetv1_ECA import TransNet
-
-
-def cpu():
-    """Get the CPU device.
-
-    Defined in :numref:`sec_use_gpu`"""
-    return torch.device('cpu')
-
-
-def gpu(i=0):
-    """Get a GPU device.
-
-    Defined in :numref:`sec_use_gpu`"""
-    return torch.device(f'cuda:{i}')
-
-
-def num_gpus():
-    """Get the number of available GPUs.
-
-    Defined in :numref:`sec_use_gpu`"""
-    return torch.cuda.device_count()
-
-
-def try_gpu(i=0):
-    """Return gpu(i) if exists, otherwise return cpu().
-
-    Defined in :numref:`sec_use_gpu`"""
-    if num_gpus() >= i + 1:
-        return gpu(i)
-    return cpu()
-
 
 class TransNetV2(QThread):
     #  通过类成员对象定义信号对象
-    signal = Signal(int, int, int)
-    # 线程中断
+    signal = Signal(int, int, int, str)
+    #线程中断
     is_stop = 0
-    video_fn: str
-    image_save: str
-    # 线程结束信号
+    video_fn:str
+    image_save:str
+    #线程结束信号
     finished = Signal(bool)
 
-    def __init__(self, video_f, image_sav, parent, para_path=None):
+    def __init__(self, video_f, parent, model_dir=None):
         super(TransNetV2, self).__init__()
         self.is_stop = 0
         self.video_fn = video_f
-        self.image_save = image_sav
+        self.image_save = parent.image_save
+        self.frame_save = parent.frame_save
         self.parent = parent
-        if para_path is None:
-            para_path = os.path.join(os.path.dirname(__file__),
-                                     "../models/transnetv1_ECA/BEST_ECA_357k_F1_ECA_lr_0.001-wd_0.001-bs_32_48273264_0.3_iters_5000.pth")
 
-            if not os.path.exists(para_path):  # 判断文件或目录是否存在
-                raise FileNotFoundError(f"[TransNetV2] ERROR: {para_path} does not exist.")
+        self.INPUT_WIDTH = 48
+        self.INPUT_HEIGHT = 27
+        self.pre = 25
+        self.window = 50
+        self.lookup_window = self.pre * 2 + self.window
+        if model_dir is None:
+            model_dir = "models/transnetv2-weights/"
+            if not os.path.isdir(model_dir):
+                raise FileNotFoundError(f"[TransNetV2] ERROR: {model_dir} is not a directory.")
             else:
-                print(f"[TransNetV2] Using weights from {para_path}.")
+                print(f"[TransNetV2] Using weights from {model_dir}.")
 
         self._input_size = (27, 48, 3)
+        try:
+            self.model = tf.saved_model.load(model_dir)
+            print(model_dir)
+        except OSError as exc:
+            raise IOError(f"[TransNetV2] It seems that files in {model_dir} are corrupted or missing. "
+                          f"Re-download them manually and retry. For more info, see: "
+                          f"https://github.com/soCzech/TransNetV2/issues/1#issuecomment-647357796") from exc
 
-        if num_gpus():
-            devices = [try_gpu(i) for i in range(num_gpus())]
-            result_dict = torch.load(para_path)
-        else:
-            devices = [cpu()]
-            result_dict = torch.load(para_path, map_location=torch.device(devices[0]))
-
-        self.model = TransNet(test=True).to(devices[0])
-        self.model = nn.DataParallel(self.model, device_ids=devices)
-        self.model.load_state_dict(result_dict["net"])
-
-    # def predict_raw(self, frames: np.ndarray):
-    #     assert len(frames.shape) == 5 and frames.shape[2:] == self._input_size, \
-    #         "[TransNetV2] Input shape must be [batch, frames, height, width, 3]."
-    #     frames = tf.cast(frames, tf.float32)
-
-    #     logits, dict_ = self._model(frames)
-    #     single_frame_pred = tf.sigmoid(logits)
-    #     all_frames_pred = tf.sigmoid(dict_["many_hot"])
-
-    #     return single_frame_pred, all_frames_pred
-
-    def predict_raw(self, frames):
+    def predict_raw(self, frames: np.ndarray):
         assert len(frames.shape) == 5 and frames.shape[2:] == self._input_size, \
             "[TransNetV2] Input shape must be [batch, frames, height, width, 3]."
-        return self.model(frames)
+        frames = tf.cast(frames, tf.float32)
+
+        logits, dict_ = self.model(frames)
+        single_frame_pred = tf.sigmoid(logits)
+        all_frames_pred = tf.sigmoid(dict_["many_hot"])
+
+        return single_frame_pred, all_frames_pred
+
+    def predict_frames(self, frames: np.ndarray):
+        assert len(frames.shape) == 4 and frames.shape[1:] == self._input_size, \
+            "[TransNetV2] Input shape must be [frames, height, width, 3]."
+
+        def input_iterator():
+            # return windows of size 100 where the first/last 25 frames are from the previous/next batch
+            # the first and last window must be padded by copies of the first and last frame of the video
+            no_padded_frames_start = 25
+            no_padded_frames_end = 25 + 50 - (len(frames) % 50 if len(frames) % 50 != 0 else 50)  # 25 - 74
+
+            start_frame = np.expand_dims(frames[0], 0)
+            end_frame = np.expand_dims(frames[-1], 0)
+            padded_inputs = np.concatenate(
+                [start_frame] * no_padded_frames_start + [frames] + [end_frame] * no_padded_frames_end, 0
+            )
+
+            ptr = 0
+            while ptr + 100 <= len(padded_inputs):
+                out = padded_inputs[ptr:ptr + 100]
+                ptr += 50
+                yield out[np.newaxis]
+
+        predictions = []
+
+        # 进度条设置
+        total_number = len(frames) # 总任务数
+
+        for inp in input_iterator():
+            if self.is_stop:
+                self.finished.emit(True)
+                break
+            single_frame_pred, all_frames_pred = self.predict_raw(inp)
+            predictions.append((single_frame_pred.numpy()[0, 25:75, 0],
+                                all_frames_pred.numpy()[0, 25:75, 0]))
+
+            print("\r[TransNetV2] Processing video frames {}/{}".format(
+                min(len(predictions) * 50, len(frames)), len(frames)
+            ), end="")
+            # percent = round(float(min(len(predictions) * 50, len(frames))/ len(frames)) * 100)
+            # self.signal.emit(percent, min(len(predictions) * 50, len(frames)),total_number,"LoadingVideo")  # 发送实时任务进度和总任务进度
+            # percent = round(float(min(len(predictions) * 50, len(frames))/ len(frames)) * 100)
+            # bar.set_value(min(len(predictions) * 50, len(frames)), len(frames), percent)  # 刷新进度条
+        if self.is_stop:
+            self.finished.emit(True)
+            pass
+        else:
+            single_frame_pred = np.concatenate([single_ for single_, all_ in predictions])
+            self.single_frame=single_frame_pred[:len(frames)]
+            all_frames_pred = np.concatenate([all_ for single_, all_ in predictions])
+            self.all_frames=all_frames_pred[:len(frames)]
+            #return single_frame_pred[:len(frames)], all_frames_pred[:len(frames)]  # remove extra padded frames
 
     def predict_video(self, frames: np.ndarray):
         print("-------------START predict_video -------------")
-        input_width = self.model.module.INPUT_WIDTH
-        input_height = self.model.module.INPUT_HEIGHT
-        pre = self.model.module.pre
-        window = self.model.module.window
-        look_window = self.model.module.lookup_window
+        input_width = self.INPUT_WIDTH
+        input_height = self.INPUT_HEIGHT
+        pre = self.pre
+        window = self.window
+        look_window = self.lookup_window
         print(f'pre:{pre}, window: {window}, look_wiodow: {look_window}')
+
         assert len(frames.shape) == 4 and list(frames.shape[1:]) == [input_height, input_width, 3], \
             "[TransNet] Inputs shape must be [frames, height, width, 3]."
 
@@ -112,13 +126,10 @@ class TransNetV2(QThread):
             no_padded_frames_start = pre
             no_padded_frames_end = pre + window - (len(frames) % window if len(frames) % window != 0 else window)
 
-            start_frame = frames[0].unsqueeze(0)  # Unsqueezing to add batch dimension
-            end_frame = frames[-1].unsqueeze(0)  # Unsqueezing to add batch dimension
-            padded_inputs = torch.cat(
-                [start_frame.repeat(no_padded_frames_start, 1, 1, 1),
-                 frames,
-                 end_frame.repeat(no_padded_frames_end, 1, 1, 1)],
-                dim=0
+            start_frame = np.expand_dims(frames[0], 0)
+            end_frame = np.expand_dims(frames[-1], 0)
+            padded_inputs = np.concatenate(
+                [start_frame] * no_padded_frames_start + [frames] + [end_frame] * no_padded_frames_end, 0
             )
 
             ptr = 0
@@ -136,9 +147,8 @@ class TransNetV2(QThread):
                 self.finished.emit(True)
                 break
 
-            single_frame_pred = self.predict_raw(inp)
-
-            predictions_window = single_frame_pred.detach().numpy().reshape(-1)
+            single_frame_pred, all_frames_pred = self.predict_raw(inp)
+            predictions_window = single_frame_pred.numpy()[0, pre: pre + window, 0]
             predictions.append(predictions_window)
 
             print("\r[TransNetV2] Processing video frames {}/{}".format(
@@ -154,7 +164,7 @@ class TransNetV2(QThread):
             # 结束 -----------------
 
             percent = round(float(min(len(predictions) * window, len(frames)) / len(frames)) * 100)
-            self.signal.emit(percent, min(len(predictions) * window, len(frames)), total_number)  # 发送实时任务进度和总任务进度
+            self.signal.emit(percent, min(len(predictions) * window, len(frames)), total_number,"shotcut")  # 发送实时任务进度和总任务进度
 
             # percent = round(float(min(len(predictions) * 50, len(frames))/ len(frames)) * 100)
             # bar.set_value(min(len(predictions) * 50, len(frames)), len(frames), percent)  # 刷新进度条
@@ -168,10 +178,16 @@ class TransNetV2(QThread):
             # return single_frame_pred[:len(frames)], all_frames_pred[:len(frames)]  # remove extra padded frames
 
     def run(self):
-        # print("[TransNetV2] Extracting frames from {}".format(video_fn))
-        # 进度条设置
-        total_number = 0  # 总任务数
-        task_id = 0  # 子任务序号
+
+        # 删除旧的分镜
+        if not (os.path.exists(self.image_save)):
+            os.mkdir(self.image_save)
+        if not (os.path.exists(self.frame_save)):
+            os.mkdir(self.frame_save)
+        else:
+            imgfiles = os.listdir(os.path.join(os.getcwd(), self.frame_save))
+            for f in imgfiles:
+                os.remove(os.path.join(os.getcwd(), self.frame_save, f))
 
         try:
             import cv2
@@ -196,18 +212,13 @@ class TransNetV2(QThread):
         cap.release()
         self.video = np.array(frames)
         # self.video = np.frombuffer(video_stream, np.uint8).reshape([-1, 27, 48, 3])
-        self.predict_video(torch.from_numpy(self.video))
-        self.signal.emit(101, 101, 101)  # 完事了再发一次
-
+        self.predict_video(self.video)
+        self.signal.emit(101, 101, 101,"shotcut")  # 完事了再发一次
         if self.is_stop:
             self.finished.emit(True)
             pass
         else:
             self.run_moveon()
-        # if self.isRunning():
-        # self.terminate()
-        # print(video)
-        # return (video, *self.predict_frames(video))
 
     @staticmethod
     def predictions_to_scenes(predictions: np.ndarray, threshold: float = 0.3):
@@ -228,7 +239,8 @@ class TransNetV2(QThread):
         if len(scenes) == 0:
             return np.array([[0, len(predictions) - 1]], dtype=np.int32)
 
-        return np.array(scenes, dtype=np.int32)
+        # return np.array(scenes, dtype=np.int32)
+        return scenes
 
     @staticmethod
     def visualize_predictions(frames: np.ndarray, predictions):
@@ -270,50 +282,48 @@ class TransNetV2(QThread):
                 if value != 0:
                     draw.line((x + j, y, x + j, y - value), fill=tuple(color), width=1)
         return img
-
+    
     def stop(self):
         self.is_stop = 1
 
     def save_pred(self, pred):
 
         scenes = self.predictions_to_scenes(pred)
-        number = [sublist[1] for sublist in scenes]
-        number.pop()
+
+        number = []
+        number.append(0)
+        for sublist in scenes:
+            number.append(sublist[1])
+        number.pop() # 由于最后一个镜头不是真正的结尾，所以每次都会去除
         print(number)
+
         cap = cv2.VideoCapture(self.video_fn)
         frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         frame_len = len(str((int)(frame_count)))
 
-        frame_save = os.path.join(self.image_save, "frame")
-        os.makedirs(frame_save, exist_ok=True)
+        os.makedirs(self.frame_save, exist_ok=True)
 
         # 后续的分镜图片
-        _, img1 = cap.read()
         for i in number:
-            i = i + 1
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            _, img2 = cap.read()
+            _, img = cap.read()
             j = ('%0{}d'.format(frame_len)) % i
-            png_save_path = os.path.join(frame_save, f"frame{str(j)}.png")
+            png_save_path = os.path.join(self.frame_save, f"frame{str(j)}.png")
             if not os.path.exists(png_save_path):
-                cv2.imwrite(png_save_path, img2)
-            img1 = img2
+                cv2.imwrite(png_save_path, img)
             self.parent.parent.shot_finished.emit()
 
     def run_moveon(self):
 
-        # 保存路径
-        frame_save = os.path.join(self.image_save, "frame")
-
         # 删除旧的分镜
-        if not (os.path.exists(self.image_save)):
-            os.mkdir(self.image_save)
-        if not (os.path.exists(frame_save)):
-            os.mkdir(frame_save)
-        else:
-            imgfiles = os.listdir(os.path.join(os.getcwd(), frame_save))
-            for f in imgfiles:
-                os.remove(os.path.join(os.getcwd(), frame_save, f))
+        # if not (os.path.exists(self.image_save)):
+        #     os.mkdir(self.image_save)
+        # if not (os.path.exists(self.frame_save)):
+        #     os.mkdir(self.frame_save)
+        # else:
+        #     imgfiles = os.listdir(os.path.join(os.getcwd(), self.frame_save))
+        #     for f in imgfiles:
+        #         os.remove(os.path.join(os.getcwd(), self.frame_save, f))
 
         video_frames = self.video
         single_frame_predictions = self.single_frame
@@ -330,34 +340,25 @@ class TransNetV2(QThread):
 
         number = []
         number = getFrame_number(os.path.join(self.image_save, "video.txt"))
-        number.pop()
+        # number.pop()
 
         cap = cv2.VideoCapture(self.video_fn)
-
         frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        print(f"frame_count:{frame_count}")
         frame_len = len(str((int)(frame_count)))
         shot_len = []
-        start = 0
-        # 第一帧的图片
-        i = 0
-        _, img1 = cap.read()
-        frameid = ""
-        for j in range(frame_len - len(str(i))):
-            frameid = frameid + "0"
-        cv2.imwrite(os.path.join(frame_save, f"/frame{frameid}{i}.png"), img1)
 
-        # 后续的分镜图片
-        _, img1 = cap.read()
+        start = -1
         for i in number:
-            i = i + 1
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            _, img2 = cap.read()
+            _, img = cap.read()
             j = ('%0{}d'.format(frame_len)) % i
-            cv2.imwrite(os.path.join(frame_save, f"frame{str(j)}.png"), img2)
-            shot_len.append([start, i, i - start])
+            cv2.imwrite(os.path.join(self.frame_save, f"frame{str(j)}.png"), img)
+
+            if i != 0:
+                shot_len.append([start, i, i - start + 1])
             start = i
-            img1 = img2
-            # self.parent.parent.shot_finished.emit()
+        print(shot_len)
         print("TransNetV2 completed")  # 把画图放进来
         # 发送shot_finished信号，进行处理
         self.parent.parent.shot_finished.emit()
@@ -365,16 +366,15 @@ class TransNetV2(QThread):
         rs = Resultsave(self.image_save + "/")
         rs.plot_transnet_shotcut(shot_len)
         rs.diff_csv(0, shot_len)
-
         self.finished.emit(True)
-        # self.parent.shotcut.clicked.connect(lambda: self.parent.colors.setEnabled(True))
 
+        #self.parent.shotcut.clicked.connect(lambda: self.parent.colors.setEnabled(True))
 
 def getFrame_number(f_path):
     f = open(f_path, 'r')
     Frame_number = []
+    Frame_number.append(0)
 
-    i = 0
     for line in f:
         NumList = [int(n) for n in line.split()]
         Frame_number.append(NumList[1])
@@ -383,7 +383,7 @@ def getFrame_number(f_path):
     return Frame_number
 
 
-def transNetV2_run(v_path, image_save, parent):  # parent定义有点奇怪
+def transNetV2_run(v_path, parent):#parent定义有点奇怪
     import sys
     import argparse
 
@@ -393,7 +393,7 @@ def transNetV2_run(v_path, image_save, parent):  # parent定义有点奇怪
               f"Skipping video {file}.", file=sys.stderr)
 
     # 模型跑完了生成一个分镜帧号的txt
-    model = TransNetV2(file, image_save, parent)
+    model = TransNetV2(file, parent)
     model.finished.connect(parent.shotcut.setEnabled)
     model.finished.connect(parent.colors.setEnabled)
     model.finished.connect(parent.objects.setEnabled)

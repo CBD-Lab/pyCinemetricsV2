@@ -11,7 +11,7 @@ from ui.progressbar import *
 
 class ColorAnalysis(QThread):
     #  通过类成员对象定义信号对象
-    signal = Signal(int, int, int)
+    signal = Signal(int, int, int, str)
     #线程中断
     flag = 0
     # 线程结束信号
@@ -65,10 +65,10 @@ class ColorAnalysis(QThread):
 
     def run(self):
         imglist = os.listdir("img/" + self.imgpath + '/frame/')
-        colorlist = []
-        allrealcolors = []
-        allcolors = []
-        allcolor_16 = []
+        color_16_list = []
+        allcolors_rgb = []
+        allcolors_rgb_list = []
+        allcolors_16 = []
 
         # 进度条设置
         total_number = len(imglist)  # 总任务数
@@ -80,52 +80,58 @@ class ColorAnalysis(QThread):
                 break
             self.filename=("img/" + self.imgpath + "/frame/" + i)
             imgdata = self.load_image()
-            if len(imgdata) < 6:
-                realcolor = [list(imgdata[0])]*5
+            if len(imgdata) < self.colorsC:
+                color_rgb = [list(imgdata[0])] * self.colorsC
             else:
-                colors = self.kmeans(imgdata,self.colorsC)  # 提取几种色彩
-                realcolor = self.calculate_distances(colors)
-            color_16 = self.rgb_to_hex(realcolor)
-            allcolor_16 += color_16
-            allrealcolors += realcolor
-            allcolors.append((list)(realcolor))  # 用于plot3D
-            colorsNew = np.array(realcolor).reshape(1, 3 * self.colorsC)
-            colorlist.append([i, colorsNew[0]])
+                colors = self.kmeans(imgdata, self.colorsC)  # 提取几种色彩
+                color_rgb = self.calculate_distances(colors)
+            color_16 = self.rgb_to_hex(color_rgb)
+
+            allcolors_16 += color_16
+            allcolors_rgb += color_rgb
+            allcolors_rgb_list.append((list)(color_rgb))  # 用于plot3D
+
+            color_16_list.append([i, color_16])
+
             percent = round(float(task_id / total_number) * 100)
-            self.signal.emit(percent, task_id, total_number)  # 发送实时任务进度和总任务进度
+            self.signal.emit(percent, task_id, total_number, "ColorAnalyze")  # 发送实时任务进度和总任务进度
+
             task_id += 1
-        self.signal.emit(101, 101, 101)  # 完事了再发一次
+        self.signal.emit(101, 101, 101, "ColorAnalyze")  # 完事了再发一次
+
         if self.flag:
             self.finished.emit(True)
             pass
         else:
             # 创建一个py文件 骗一下matplot让它以为在主线程里
             rs = Resultsave("./img/"+self.imgpath+"/")
-            rs.color_csv(colorlist)
-            rs.plot_scatter_3d(allcolors)
-
+            rs.color_csv(color_16_list, self.colorsC)
+            rs.plot_scatter_3d(allcolors_rgb_list)
             self.finished.emit(True)
+
     def stop(self):
         self.flag = 1
+        
     def analysis1img(self, imgpath, colorC):
         self.filename = imgpath
         imgdata = self.load_image()
-        if len(imgdata) < 6:
-            realcolor = [list(imgdata[0])] * 5
+        if len(imgdata) < self.colorsC:
+            color_rgb = [list(imgdata[0])] * self.colorsC
         else:
-            colors = self.kmeans(imgdata, colorC)  # 提取几种色彩
-            realcolor = self.calculate_distances(colors)
-        color_16 = self.rgb_to_hex(realcolor)
-        self.drawpie(imgdata, realcolor, color_16)
+            colors = self.kmeans(imgdata, self.colorsC)  # 提取几种色彩
+            color_rgb = self.calculate_distances(colors)
+        color_16 = self.rgb_to_hex(color_rgb)
+        self.drawpie(imgdata, color_rgb, color_16)
 
     def drawpie(self, imgdata, colors, colors_16):
         cluster1, _ = vq(imgdata, colors)
         result = Counter(cluster1.tolist())
         plt.clf()
         plt.style.use("dark_background")
-        plt.pie(x=[result[0], result[1], result[2], result[3], result[4]],  # 指定绘图数据
-                colors=[colors_16[0], colors_16[1], colors_16[2], colors_16[3], colors_16[4]],  # 为饼图添加标签说明
-                wedgeprops=dict(width=0.2, edgecolor='w'),  # 设置环图
+        plt.pie(x=[result[i] for i in range(self.colorsC)],  # 指定绘图数据
+                colors=colors_16[:self.colorsC],  # 为饼图添加标签说明
+                # wedgeprops=dict(width=0.2, edgecolor='w'),  # 设置环图
+                wedgeprops=dict(edgecolor='w'),  # 设置饼图
                 labels=colors_16,
                 autopct='%1.2f%%',
                 )

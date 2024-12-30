@@ -3,13 +3,14 @@ import re
 import easyocr
 import cv2
 import csv
+import numpy as np
 from algorithms.wordcloud2frame import WordCloud2Frame
 from ui.progressbar import pyqtbar
 from ui.progressbar import *
 
 class CrewProcessor(QThread):
     #  通过类成员对象定义信号对象
-    signal = Signal(int, int, int)
+    signal = Signal(int, int, int, str)
     #线程中断
     is_stop = 0
     #往主线程传递字幕
@@ -47,6 +48,9 @@ class CrewProcessor(QThread):
 
         # 进度条设置
         total_number = frame_count  # 总任务数
+        # 图片拼接
+        stitched_frames = []
+        num_frames=[]
 
         while i<frame_count:
             if self.is_stop:
@@ -67,6 +71,10 @@ class CrewProcessor(QThread):
             if Crew_event:
                 wordslist = self.reader.readtext(img2)
                 if len(wordslist) > 10:
+                    #记录图片和帧号
+                    stitched_frames.append(frame)
+                    num_frames.append(i)
+
                     Str = ""
                     x_Str = ""
                     old_w = []
@@ -91,25 +99,57 @@ class CrewProcessor(QThread):
                                 x_Str = x_Str + w[1] + ' '
                     if (Str != "" and Str != '\n'):
                         CrewList.append([i, Str])
-                        CrewStr = CrewStr + Str + '\n'
+                        CrewStr = CrewStr + '\n' + str(i) + '\n' + Str + '\n'
             else:
                 img1=img2
             i = i + self.CrewValue
             percent = round(float(i / frame_count) * 100)
-            self.signal.emit(percent, i, frame_count)   # 刷新进度条 不严谨
-        self.signal.emit(101, 101, 101)  # 完事了再发一次
+            self.signal.emit(percent, i, frame_count, "CrewDetect")   # 刷新进度条 不严谨
+        self.signal.emit(101, 101, 101, "CrewDetect")  # 完事了再发一次
 
         if self.is_stop:
             self.finished.emit(True)
         else:
+            self.CrewImage(stitched_frames,num_frames)
             print("显示字幕结果", CrewStr)
             self.Crew2Srt(CrewList, self.save_path)
             self.Crewsignal.emit(CrewStr)
             cap.release()
-            wc2f = WordCloud2Frame()
-            tf = wc2f.wordfrequency(os.path.join(self.save_path, "Crew.csv"))
-            wc2f.plotwordcloud(tf, self.save_path, "/Crew")
             self.finished.emit(True)
+
+    def CrewImage(self, stitched_frames, num_frames):
+        if stitched_frames:
+            # 假设我们按行拼接（每10张一行）
+            images_per_row = 10
+            # 计算需要填充的黑色图像
+            rows = len(stitched_frames) // images_per_row + (1 if len(stitched_frames) % images_per_row != 0 else 0)
+            # 创建一个全黑的图像作为填充，大小与其他图像相同
+            h, w = stitched_frames[0].shape[:2]
+            black_image = np.zeros((h, w, 3), dtype=np.uint8)  # 黑色图像
+            # 拼接图像
+            stitched_image = []
+
+            for idx, frame in enumerate(stitched_frames):
+                # 获取当前图像对应的编号
+                frame_number = num_frames[idx]
+
+                # 在左上角写上编号，字体为绿色
+                cv2.putText(frame, str(frame_number), (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
+
+            for i in range(rows):
+                # 获取当前行的图像
+                row_images = stitched_frames[i * images_per_row:(i + 1) * images_per_row]
+                # 如果当前行不足 10 张，补充黑色图像
+                if len(row_images) < images_per_row:
+                    row_images += [black_image] * (images_per_row - len(row_images))
+                # 横向拼接当前行
+                stitched_image.append(np.hstack(row_images))
+
+            # 将所有行垂直拼接
+            stitched_image = np.vstack(stitched_image)
+            # 保存拼接后的图像
+            cv2.imwrite(self.save_path + 'Crew.png', stitched_image)
+            print("Stitched image saved as 'Crew.png'")
 
     def Crew2Srt(self,CrewList, savePath):
 
