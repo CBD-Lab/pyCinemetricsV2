@@ -8,7 +8,7 @@ import csv
 from algorithms.wordcloud2frame import WordCloud2Frame
 from ui.progressbar import pyqtbar
 from ui.progressbar import *
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 
 
 class SubtitleProcessorWhisper(QThread):

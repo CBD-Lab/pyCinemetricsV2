@@ -19,6 +19,7 @@ from algorithms.CrewEasyOcr import CrewProcessor
 from algorithms.img2Colors import ColorAnalysis
 from ui.ConcatFrameWindow import ConcatFrameWindow
 from ui.CsvViewerDialog import CsvViewerDialog
+from ui.MultiCsvViewerDialog import MultiCsvViewerDialog
 from ui.progressbar import pyqtbar
 
 class Control(QDockWidget):
@@ -55,7 +56,8 @@ class Control(QDockWidget):
         self.show_shotscale_csv = self.create_function_button("ShowShotscale", lambda: self.show_csv("shotscale.csv"))
 
         self.colors = self.create_function_button("Colors", self.colorAnalyze)
-        self.show_colors_csv = self.create_function_button("ShowColors", lambda: self.show_csv("colors.csv"))
+        # self.show_colors_csv = self.create_function_button("ShowColors", lambda: self.show_csv("colors.csv"))
+        self.show_colors_csv = self.create_function_button("ShowColors", self.show_mult_csv)
 
         # 滑动条
         self.colorsSlider = QSlider(Qt.Horizontal, self)  # 水平方向
@@ -313,6 +315,15 @@ class Control(QDockWidget):
             csv_dialog = CsvViewerDialog(csv_path)
             csv_dialog.finished.connect(lambda: self.toggle_buttons(True))
             csv_dialog.exec()
+    
+    def show_mult_csv(self):
+        if not os.path.exists(self.image_save):
+            # Show a warning message if the file doesn't exist
+            self.show_warning("File Not Found", f"The file at {self.image_save} does not exist.")
+        else:
+            mult_csv_dialog = MultiCsvViewerDialog(self.image_save)
+            mult_csv_dialog.finished.connect(lambda: self.toggle_buttons(True))
+            mult_csv_dialog.exec()
 
     # 弹出警告框
     def show_warning(self, title, message):

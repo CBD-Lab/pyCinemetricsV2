@@ -1,11 +1,13 @@
 import sys
 import csv
+import os
 from PySide2.QtWidgets import QApplication, QDialog, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QFileDialog
 
 class CsvViewerDialog(QDialog):
     def __init__(self, csv_path):
         super().__init__()
-        self.setWindowTitle("CSV Viewer")
+        self.windowCaption = os.path.splitext(os.path.basename(csv_path))[0]
+        self.setWindowTitle(self.windowCaption + " Viewer")
         self.resize(800, 600)
         # Layout to hold the table and other widgets
         layout = QVBoxLayout()

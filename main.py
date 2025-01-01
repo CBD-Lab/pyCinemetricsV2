@@ -76,18 +76,18 @@ class MainWindow(QMainWindow):
         manual_action.triggered.connect(
             lambda: QMessageBox.about(
                 self,
-                'PyCinemetrics V0.1',
+                'PyCinemetrics V2.0',
                 ' 1-Open Video Play(VLC)\n'
-                ' 2-ShotCut(aHash)\n'
+                ' 2-ShotCut(TransnetV2)\n'
                 ' 3-Color Analyze(Kmeans)\n'
-                ' 4-Subtitle(OCR)\n'
-                ' 5-Object Detection(VGG19)\n'
+                ' 4-Subtitle(Whisper)\n'
+                ' 5-Object Detection(GIT-base)\n'
                 ' 6-Field of view(OpenPose)\n'
             )
         )
         about_action = QAction('&About', self)  # 关于菜单项
         about_action.triggered.connect(
-            lambda: QMessageBox.about(self, 'PyCinemetrics', 'PyCinemetrics V0.1 \nHttp://movie.yingshinet.com')
+            lambda: QMessageBox.about(self, 'PyCinemetrics', 'PyCinemetrics V2.0 \nHttp://movie.yingshinet.com')
         )
         help_menu.addAction(manual_action)  # 添加使用说明菜单项
         help_menu.addAction(about_action)  # 添加关于菜单项
