@@ -164,7 +164,7 @@ class TransNetV2(QThread):
             # 结束 -----------------
 
             percent = round(float(min(len(predictions) * window, len(frames)) / len(frames)) * 100)
-            self.signal.emit(percent, min(len(predictions) * window, len(frames)), total_number,"shotcut")  # 发送实时任务进度和总任务进度
+            self.signal.emit(percent, min(len(predictions) * window, len(frames)), total_number, "shotcut")  # 发送实时任务进度和总任务进度
 
             # percent = round(float(min(len(predictions) * 50, len(frames))/ len(frames)) * 100)
             # bar.set_value(min(len(predictions) * 50, len(frames)), len(frames), percent)  # 刷新进度条
@@ -313,6 +313,7 @@ class TransNetV2(QThread):
                 cv2.imwrite(png_save_path, img)
             self.parent.parent.shot_finished.emit()
 
+    # 画图 和 保存
     def run_moveon(self):
 
         # 删除旧的分镜

@@ -2,6 +2,7 @@ import os
 import csv
 import matplotlib.pyplot as plt
 
+# 输入图片数据, 可以讲数据绘制为图像, 和存到CSV
 class Resultsave:
     def __init__(self, image_save_path):
         self.image_save_path = image_save_path

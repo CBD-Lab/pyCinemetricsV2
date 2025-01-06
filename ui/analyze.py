@@ -16,6 +16,8 @@ class Analyze(QDockWidget):
     def init_analyze(self):
         # 使用 QTabWidget 来支持多个标签页
         self.tab_widget = QTabWidget(self)
+        self.tab_widget.setTabsClosable(True)
+        self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.setWidget(self.tab_widget)  # 将 QTabWidget 设置为 QDockWidget 的中央部件
 
 
@@ -36,16 +38,6 @@ class Analyze(QDockWidget):
 
         # 创建一个布局并将标签添加到布局中
         layout = QVBoxLayout()
-
-        # 创建关闭按钮并添加到布局
-        close_button_layout = QHBoxLayout()
-        close_button = QPushButton("❎", self)
-        close_button.setFixedSize(30, 30)
-        close_button.clicked.connect(lambda: self.close_tab())
-        close_button_layout.addWidget(close_button, alignment=Qt.AlignRight)
-
-        # 将关闭按钮布局添加到垂直布局的顶部
-        layout.addLayout(close_button_layout)
 
         # 将图片标签添加到垂直布局中
         layout.addWidget(label)
@@ -84,7 +76,7 @@ class Analyze(QDockWidget):
                     # 缩放图像，保持比例
                     scaled_pixmap = pixmap.scaled(target_width, target_height, Qt.KeepAspectRatio)
                 else:
-                    # 如果图片的宽度小于或等于800，保持原尺寸
+                    # 如果图片的宽度小于或等于1600，保持原尺寸
                     scaled_pixmap = pixmap
                 self.show_zoomed_image(scaled_pixmap)
     

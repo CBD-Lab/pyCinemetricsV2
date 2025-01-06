@@ -3,12 +3,12 @@ import os
 import shutil
 import numpy as np
 import pandas as pd
-from PySide2.QtGui import QPixmap
+from PySide2.QtGui import QPixmap, QRegExpValidator
 from PySide2.QtWidgets import (
     QDockWidget, QPushButton, QLabel, QFileDialog, QSlider, QMessageBox, QVBoxLayout,
-    QWidget, QGridLayout, QInputDialog
+    QWidget, QGridLayout, QLineEdit
 )
-from PySide2.QtCore import Qt
+from PySide2.QtCore import Qt, QRegExp
 from algorithms.objectDetection import ObjectDetection
 from algorithms.shotscale import ShotScale
 from algorithms.pyqtgraph import TransNetPlot
@@ -17,10 +17,12 @@ from algorithms.subtitleEasyOcr import SubtitleProcessor
 from algorithms.subtitleWhisper import SubtitleProcessorWhisper
 from algorithms.CrewEasyOcr import CrewProcessor
 from algorithms.img2Colors import ColorAnalysis
+from algorithms.similarity import Similarity
 from ui.ConcatFrameWindow import ConcatFrameWindow
 from ui.CsvViewerDialog import CsvViewerDialog
 from ui.MultiCsvViewerDialog import MultiCsvViewerDialog
 from ui.progressbar import pyqtbar
+from ui.ImageDialog import ImageDialog
 
 class Control(QDockWidget):
     def __init__(self, parent, filename):
@@ -37,27 +39,35 @@ class Control(QDockWidget):
     def init_ui(self):
 
         grid_layout = QGridLayout()
+        grid_layout.setVerticalSpacing(1)  # 设置行间距为 1 像素
 
         # 按钮
         self.shotcut = self.create_function_button("Shot", self.shotcut_transNetV2)
-        self.shotlenimgplot = self.create_function_button("ShotlenImgPlot", self.plot_transnet_pyqtgraph)
-        self.show_shotlen_csv = self.create_function_button("ShowShotLen", lambda: self.show_csv("shotlen.csv"))
+        self.shotlenimgplot = self.create_function_button("ShotlenImg", self.plot_transnet_pyqtgraph)
 
         self.frameconcat = self.create_function_button("ShotStitch", self.getframeconcat)
         
         self.subtitle = self.create_function_button("Subtitles", self.getsubtitles)
         self.credits = self.create_function_button("Crew", self.getcredits)
-        self.show_subtitles_csv = self.create_function_button("ShowSubtitles", lambda: self.show_csv("subtitle.csv"))
 
         self.objects = self.create_function_button("Objects", self.object_detect)
-        self.show_objects_csv = self.create_function_button("ShowObjects", lambda: self.show_csv("object.csv"))
 
         self.shotscale = self.create_function_button("ShotScale", self.getshotscale)
-        self.show_shotscale_csv = self.create_function_button("ShowShotscale", lambda: self.show_csv("shotscale.csv"))
 
         self.colors = self.create_function_button("Colors", self.colorAnalyze)
-        # self.show_colors_csv = self.create_function_button("ShowColors", lambda: self.show_csv("colors.csv"))
-        self.show_colors_csv = self.create_function_button("ShowColors", self.show_mult_csv)
+
+        self.show_csv = self.create_function_button("ShowCsv", self.show_mult_csv)
+
+        self.shot_similarity = self.create_function_button("Similarity", self.frame_similarity)
+
+        # 输入框
+        # frameconcat 输入框
+        self.fc_st_input = self.create_function_lineEdit("start")
+        self.fc_ed_input = self.create_function_lineEdit("end")
+
+        # similarity 输入框
+        self.sim_st_input = self.create_function_lineEdit("start")
+        self.sim_ed_input = self.create_function_lineEdit("end")
 
         # 滑动条
         self.colorsSlider = QSlider(Qt.Horizontal, self)  # 水平方向
@@ -89,31 +99,36 @@ class Control(QDockWidget):
         # 第零行， 分镜+csv显示
         grid_layout.addWidget(self.shotcut, 0, 0)
         grid_layout.addWidget(self.shotlenimgplot, 0, 1)
-        grid_layout.addWidget(self.show_shotlen_csv, 0, 3)
 
         # 第一行，镜头拼接
-        grid_layout.addWidget(self.frameconcat, 1, 0)
-        grid_layout.addWidget(self.frameConcatSlider, 1, 1)
-        grid_layout.addWidget(self.labelFrameConcat, 1, 2)
+        grid_layout.addWidget(self.fc_st_input, 1, 0)
+        grid_layout.addWidget(self.fc_ed_input, 1, 1)
+        grid_layout.addWidget(self.frameConcatSlider, 1, 2)
+        grid_layout.addWidget(self.labelFrameConcat, 1, 3)
+        grid_layout.addWidget(self.frameconcat, 1, 4)
 
         # 第三行，字幕
         grid_layout.addWidget(self.subtitle, 2, 0)
         grid_layout.addWidget(self.credits, 2, 1)
-        grid_layout.addWidget(self.show_subtitles_csv, 2, 3)
 
         # 第四行，目标检测
         grid_layout.addWidget(self.objects, 3, 0)
-        grid_layout.addWidget(self.show_objects_csv, 3, 3)
 
         # 第五行，shotscale
         grid_layout.addWidget(self.shotscale, 4, 0)
-        grid_layout.addWidget(self.show_shotscale_csv, 4, 3)
 
         # 第六行， Colors
         grid_layout.addWidget(self.colors, 5, 0)
         grid_layout.addWidget(self.colorsSlider, 5, 1)  
         grid_layout.addWidget(self.labelColors, 5, 2)  
-        grid_layout.addWidget(self.show_colors_csv, 5, 3)
+
+        # 第七行，可视化行, ShowCsvFiles, 显示区间[start, end]帧相识度图
+        grid_layout.addWidget(self.show_csv, 6, 0)
+
+        # 第八行
+        grid_layout.addWidget(self.sim_st_input, 8, 0)
+        grid_layout.addWidget(self.sim_ed_input, 8, 1)
+        grid_layout.addWidget(self.shot_similarity, 8, 4)
 
         # 创建一个QWidget，将主布局设置为这个QWidget的布局
         widget = QWidget()
@@ -121,53 +136,77 @@ class Control(QDockWidget):
         self.setWidget(widget)
 
 
-    def create_function_button(self, label, function):
+    def create_function_button(self, description, function):
         """创建功能按钮并绑定功能函数"""
-        button = QPushButton(label, self)
-        button.setMaximumWidth(100)  # 为了使得第二列button不会变成Slider的宽度，设定按钮的最大宽度
+        button = QPushButton(description, self)
+        button.setMaximumWidth(80)  # 为了使得第二列button不会变成Slider的宽度，设定按钮的最大宽度
         button.clicked.connect(lambda: self.toggle_buttons(False))  # 禁用所有按钮
         button.clicked.connect(function)
         return button
+
+    def create_function_lineEdit(self, description):
+        # 输入框
+        input_box = QLineEdit(self)
+        input_box.setPlaceholderText(description)
+
+        # 设置输入框最大长度，避免输入过长
+        input_box.setMaxLength(7)
+        # 设置最大宽度
+        input_box.setMaximumWidth(80)
+
+        # 限制输入为 0 到 2000000 的数字
+        regex = QRegExp("^[0-9]{1,7}$")  # 只允许 1-7 位数字
+        validator = QRegExpValidator(regex, input_box)
+        input_box.setValidator(validator)
+
+        return input_box
 
     def toggle_buttons(self, enable):
         """启用或禁用所有按钮"""
         self.shotcut.setEnabled(enable)
         self.shotlenimgplot.setEnabled(enable)
-        self.show_shotlen_csv.setEnabled(enable)
 
         self.frameconcat.setEnabled(enable)
 
         self.subtitle.setEnabled(enable)
         self.credits.setEnabled(enable)
-        self.show_subtitles_csv.setEnabled(enable)
 
         self.objects.setEnabled(enable)
-        self.show_objects_csv.setEnabled(enable)
 
         self.shotscale.setEnabled(enable)
-        self.show_shotscale_csv.setEnabled(enable)
 
         self.colors.setEnabled(enable)
-        self.show_colors_csv.setEnabled(enable)
+
+        self.show_csv.setEnabled(enable)
+
+        self.shot_similarity.setEnabled(enable)
     
-    def shotcut_toggle_buttons(self, enable):
+    def shotcut_toggle_buttons(self, enable, img_name:str="shotlen.png"):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
-        shot_len_ImgPath = os.path.join(self.image_save, "shotlen.png")
-        self.parent.analyze.add_tab_with_image("shot_len", shot_len_ImgPath)
+        shot_len_ImgPath = os.path.join(self.image_save, img_name)
+        self.parent.analyze.add_tab_with_image(img_name[0:-4], shot_len_ImgPath)
     
-    def imageAnalyze_toggle_buttons(self, enable,img_name:str=""):
+    def imageAnalyze_toggle_buttons(self, enable, img_name:str="colors.png"):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
         # 分析之后显示图片，传入路径即可
         ImgPath = os.path.join(self.image_save, img_name)
-        self.parent.analyze.add_tab_with_image(img_name, ImgPath)
+        self.parent.analyze.add_tab_with_image(img_name[0:-4], ImgPath)
 
-    def subtitles_toggle_buttons(self, enable):
+    def subtitles_toggle_buttons(self, enable, img_name:str="subtitle.png"):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
-        shot_len_ImgPath = os.path.join(self.image_save, "subtitle.png")
-        self.parent.analyze.add_tab_with_image("subtitle", shot_len_ImgPath)
+        shot_len_ImgPath = os.path.join(self.image_save, img_name)
+        self.parent.analyze.add_tab_with_image(img_name[0:-4], shot_len_ImgPath)
+
+    def similarity_toggle_buttons(self, enable, image_names:str):
+        """启用或禁用所有按钮"""
+        self.toggle_buttons(enable)
+        image_window = ImageDialog(self.image_save + image_names)
+        image_window.exec_()
+        similarity_ImgPath = self.image_save + image_names[0]
+        self.parent.analyze.add_tab_with_image(image_names[0][1:-4], similarity_ImgPath)
 
     def credits_toggle_buttons(self, enable):
         """启用或禁用所有按钮"""
@@ -205,7 +244,9 @@ class Control(QDockWidget):
         if not os.path.exists(self.frame_save):
             self.toggle_buttons(True)
             return
-        concatframe_window = ConcatFrameWindow(self.frame_save, self)
+        st = self.fc_st_input.text()
+        ed = self.fc_ed_input.text()
+        concatframe_window = ConcatFrameWindow(self.frame_save, int(st), int(ed), self)
         concatframe_window.finished.connect(lambda: self.toggle_buttons(True))
         concatframe_window.exec_()
 
@@ -258,10 +299,10 @@ class Control(QDockWidget):
             imgpath = os.path.basename(self.filename)[0:-4]
             objectdetection = ObjectDetection(self.filename, r"./img/" + imgpath)
         else:
-            self.imageAnalyze_toggle_buttons(True, img_name="wordcloud.png")
+            self.toggle_buttons(True)
             return
 
-        objectdetection.finished.connect(lambda: self.imageAnalyze_toggle_buttons(True, img_name="wordcloud.png"))
+        objectdetection.finished.connect(lambda: self.imageAnalyze_toggle_buttons(True, "wordcloud.png"))
         bar = pyqtbar(objectdetection)
 
     # ShotScale
@@ -270,10 +311,10 @@ class Control(QDockWidget):
             #csv_file = self.image_save + "shotscale.csv"
             shotscaleclass = ShotScale(25, self.image_save, self.frame_save)
         else:
-            self.imageAnalyze_toggle_buttons(True, img_name="shotscale.png")
+            self.toggle_buttons(True)
             return
 
-        shotscaleclass.finished.connect(lambda: self.imageAnalyze_toggle_buttons(True, img_name="shotscale.png"))
+        shotscaleclass.finished.connect(lambda: self.imageAnalyze_toggle_buttons(True, "shotscale.png"))
         #万一视频名字不变内容变了呢？
         #if not os.path.exists(csv_file):
         png_file = self.image_save + "shotscale.png"
@@ -289,33 +330,34 @@ class Control(QDockWidget):
             imgpath = os.path.basename(self.filename)[0:-4]
             coloranalysis = ColorAnalysis("", imgpath, self.parent.colorsC)
         else:
-            self.imageAnalyze_toggle_buttons(True, img_name="colors.png")
+            self.imageAnalyze_toggle_buttons(True, "colors.png")
             return
-        coloranalysis.finished.connect(lambda: self.imageAnalyze_toggle_buttons(True, img_name="colors.png"))
+        coloranalysis.finished.connect(lambda: self.imageAnalyze_toggle_buttons(True, "colors.png"))
         bar = pyqtbar(coloranalysis)
         
     #  滚动条变化
     def colorChange(self):
-        print("current Color Category slider value:"+str(self.colorsSlider.value()))
+        # print("current Color Category slider value:"+str(self.colorsSlider.value()))
         self.labelColors.setText(str(self.colorsSlider.value()))
         self.parent.colorsC = self.colorsSlider.value()
 
     def frameConcatChange(self):
-        print("current frameconcat size Category slider value:" + str(self.frameConcatSlider.value()))
+        # print("current frameconcat size Category slider value:" + str(self.frameConcatSlider.value()))
         self.frameConcatValue = self.frameConcatSlider.value()
         self.labelFrameConcat.setText(str(self.frameConcatValue))
     
-    # 弹框显示csv文件
-    def show_csv(self, csv_filename):
-        csv_path = os.path.join(self.image_save, csv_filename)
-        if not os.path.exists(csv_path):
-            # Show a warning message if the file doesn't exist
-            self.show_warning("File Not Found", f"The file at {csv_path} does not exist.")
-        else:
-            csv_dialog = CsvViewerDialog(csv_path)
-            csv_dialog.finished.connect(lambda: self.toggle_buttons(True))
-            csv_dialog.exec()
+    # 弹框显示单个csv文件
+    # def show_csv(self, csv_filename):
+    #     csv_path = os.path.join(self.image_save, csv_filename)
+    #     if not os.path.exists(csv_path):
+    #         # Show a warning message if the file doesn't exist
+    #         self.show_warning("File Not Found", f"The file at {csv_path} does not exist.")
+    #     else:
+    #         csv_dialog = CsvViewerDialog(csv_path)
+    #         csv_dialog.finished.connect(lambda: self.toggle_buttons(True))
+    #         csv_dialog.exec()
     
+    # 显示多个csv文件
     def show_mult_csv(self):
         if not os.path.exists(self.image_save):
             # Show a warning message if the file doesn't exist
@@ -334,6 +376,26 @@ class Control(QDockWidget):
         msg_box.setText(message)
         msg_box.finished.connect(lambda: self.toggle_buttons(True))
         msg_box.exec()
+
+    def frame_similarity(self):
+        if os.path.exists(self.filename):
+            st = self.sim_st_input.text()
+            ed = self.sim_ed_input.text()
+
+            if st and ed:
+                similarity = Similarity(self.filename, int(st), int(ed))
+            elif not st and not ed:
+                self.show_warning("Error", f"Start and end cannot be empty!")
+            elif not st:
+                self.show_warning("Error", f"Start cannot be empty!")
+            else:
+                self.show_warning("Error", f"End cannot be empty!")
+        else:
+            self.toggle_buttons(True)
+            return
+        image_names = np.array(["/similarity.png", "/similarity_reversed.png"])
+        similarity.finished.connect(lambda: self.similarity_toggle_buttons(True, image_names))
+        bar = pyqtbar(similarity)
     
 
         

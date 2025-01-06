@@ -59,7 +59,7 @@ class Timeline(QDockWidget):
         if self.imglist:  # 如果目录中存在图片
             for img in self.imglist:  # 遍历每个图片文件
                 img_path = 'img/' + name + "/frame/" + img  # 构建图片的完整路径
-                img_frame_num = re.search(pattern, img).group(1);
+                img_frame_num = re.search(pattern, img).group(1)
                 pixmap = QPixmap(img_path)  # 加载图片为 QPixmap 对象
                 self.paths.append(img_path)  # 保存图片路径到 paths 列表
                 item = QListWidgetItem(QIcon(pixmap), img_frame_num)  # 创建一个带图标的列表项

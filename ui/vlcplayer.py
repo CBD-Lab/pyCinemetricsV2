@@ -87,6 +87,7 @@ class VLCPlayer(QtWidgets.QWidget):
         self.videoframe.setPalette(self.palette)
         self.videoframe.setAutoFillBackground(True)
 
+        # positionslider
         self.positionslider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.positionslider.setToolTip('Position')
         self.positionslider.setMaximum(2000)

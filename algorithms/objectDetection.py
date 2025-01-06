@@ -8,42 +8,42 @@ import shutil
 import torchvision.models as models
 import torch.cuda
 import nltk
-nltk.download('punkt_tab')
-# 下载 Punkt 分词器
-nltk.download('punkt')
-
-# 下载 Averaged Perceptron 词性标注器
-nltk.download('averaged_perceptron_tagger')
-
-# 下载停用词表
-nltk.download('stopwords')
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
 from nltk.corpus import stopwords
-
-# 设置本地的 NLTK 数据路径
-# nltk_data_path = "models/nltk_data"  # 假设数据存放在当前目录下的 "nltk_data" 文件夹中
-
-# 将本地路径添加到 NLTK 数据路径中
-# nltk.data.path.append(nltk_data_path)
-# from nltk import word_tokenize, pos_tag
-# from nltk.corpus import stopwords
-
-# # 测试是否加载成功
-# print(nltk.data.find('tokenizers/punkt'))
-# print(nltk.data.find('taggers/averaged_perceptron_tagger'))
-# print(nltk.data.find('corpora/stopwords'))
-
+from nltk import word_tokenize, pos_tag
+from nltk.corpus import stopwords
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
-
 from transformers import GitProcessor, GitForCausalLM
+from transformers import MarianMTModel, MarianTokenizer
 from scipy.signal import argrelextrema
 from torchvision import transforms
 from algorithms.wordcloud2frame import WordCloud2Frame
 from ui.progressbar import *
 from collections import Counter
 from PIL import Image
+
+# 已经下载在./models/nltk_data中
+# nltk.download('punkt_tab')
+# # 下载 Punkt 分词器
+# nltk.download('punkt')
+# # 下载 Averaged Perceptron 词性标注器
+# nltk.download('averaged_perceptron_tagger')
+# # 下载停用词表
+# nltk.download('stopwords')
+
+# 设置本地的 NLTK 数据路径
+nltk_data_path = "./models/nltk_data"  # 假设数据存放在当前目录下的 "nltk_data" 文件夹中
+
+# 将本地路径添加到 NLTK 数据路径的最前面
+nltk.data.path.insert(0, nltk_data_path)
+
+# 测试是否加载成功
+# print(nltk.data.find('tokenizers/punkt'))
+# print(nltk.data.find('taggers/averaged_perceptron_tagger'))
+# print(nltk.data.find('corpora/stopwords'))
+
 
 class ObjectDetection(QThread):
     signal = Signal(int, int, int, str)  # 进度更新信号
@@ -176,7 +176,7 @@ class ObjectDetection(QThread):
         print(f"所有段处理完成，结果保存在: {output_dir}")
 
     def run(self):
-        
+
         self.process_video_by_segments(self.video_path, self.txt_path, self.output_dir)
 
         try:
@@ -188,20 +188,24 @@ class ObjectDetection(QThread):
             self.finished.emit(True)
             print(f"加载GitBase模型时出错: {e}")
             return
-
         
         # 进度条设置
         file_list = os.listdir(self.output_dir)
         total_number = len(file_list)  # 总任务数
         task_id = 0  # 子任务序号
 
+        # 加载模型实现英文转中文
+        # 加载预训练模型和分词器
+        translate_model_name = 'Helsinki-NLP/opus-mt-en-zh'  # 英文到中文的翻译模型
+        translate_model = MarianMTModel.from_pretrained(translate_model_name)
+        translate_tokenizer = MarianTokenizer.from_pretrained(translate_model_name)
         try:
             # 打开 CSV 文件以写入模式
-            with open(self.output_csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
+            with open(self.output_csv_path, mode="w+", newline="") as csvfile:
                 csv_writer = csv.writer(csvfile)
                 
                 # 写入 CSV 表头
-                csv_writer.writerow(["Filename", "Caption"])
+                csv_writer.writerow(["Filename", "Caption", "Chinese description"])
                 
                 # 遍历目录中的所有图片文件
                 for filename in os.listdir(self.output_dir):
@@ -221,10 +225,20 @@ class ObjectDetection(QThread):
                             # 生成图像描述
                             output_ids = model.generate(**inputs, max_length=100, num_beams=4)
                             caption = processor.decode(output_ids[0], skip_special_tokens=True)
-                            
+
+                            # 对文本进行分词
+                            translated = translate_tokenizer(caption, return_tensors="pt", padding=True)
+
+                            # 使用模型进行翻译
+                            translated_output = translate_model.generate(**translated)
+
+                            # 解码翻译后的文本
+                            translated_text = translate_tokenizer.decode(translated_output[0], skip_special_tokens=True)
+                            print(translated_text)
+
                             # 写入 CSV 文件
-                            csv_writer.writerow([filename, caption])
-                            print(f"图片: {filename} 的描述已保存到 CSV 文件")
+                            csv_writer.writerow([filename, caption, translated_text])
+                            # print(f"图片: {filename} 的描述已保存到 CSV 文件")
                         
                         except Exception as e:
                             # 如果图片加载或处理失败，打印错误信息
@@ -268,11 +282,11 @@ class ObjectDetection(QThread):
                 words = word_tokenize(sentence)  # 分词
                 words_tagged = pos_tag(words)  # 词性标注
                 nouns = [word for word, pos in words_tagged if pos.startswith('NN')]  # 提取名词
-
                 # 将名词存入字典
                 if nouns:
                     all_nouns[sentence] = nouns
-        except:
+        except Exception as e:
+            print(f"Exception occurred: {e}")
             return None
         return all_nouns
 
@@ -293,7 +307,7 @@ class ObjectDetection(QThread):
         except Exception as e:
             print(f"Error reading CSV file: {e}")
             return
-
+        
         if not data:
             print("Error: No data found in the CSV file.")
             return
@@ -303,7 +317,6 @@ class ObjectDetection(QThread):
         if not all_text.strip():
             print("Error: No valid text found.")
             return
-
         # 提取名词
         sentence_nouns = self.extract_nouns_by_sentence(all_text)
 
@@ -325,20 +338,20 @@ class ObjectDetection(QThread):
         # 去除停用词和低频词
         stop_words = set(stopwords.words('english'))
         filtered_tf = {word: count for word, count in tf.items() if count > 1 and word.lower() not in stop_words}
-
         if not filtered_tf:
             print("Error: No valid words for the word cloud.")
             return
 
         # 生成词云图
         wordcloud = WordCloud(width=800, height=600, background_color='white').generate_from_frequencies(filtered_tf)
-
+        print("Wordcloud image size:", wordcloud.to_array().shape)
         # 显示并保存词云图
+        plt.figure(figsize=(8, 6))  # 设置显示的尺寸
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis('off')
         output_image = os.path.join(output_dir, "wordcloud.png")
-        plt.savefig(output_image, dpi=300, format='png', bbox_inches='tight')
-        plt.close()  # 关闭当前图形
+        plt.savefig(output_image)
+
 
     def stop(self):
         self.is_stop = 1

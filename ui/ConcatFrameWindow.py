@@ -1,16 +1,19 @@
 import sys
 import os
+import re
 from PySide2.QtCore import Qt
 from PySide2.QtGui import QImage, QPixmap
 from PySide2.QtWidgets import QApplication, QDialog, QLabel, QVBoxLayout, QFileDialog, QPushButton, QWidget
 from PIL import Image
 
 class ConcatFrameWindow(QDialog):
-    def __init__(self, folder_path, parent=None):
+    def __init__(self, folder_path, st, ed, parent=None):
         super().__init__(parent)
 
         self.folder_path = folder_path
         self.parent = parent
+        self.st = st
+        self.ed = ed
 
         self.setWindowTitle("Concated Frame")
         # 设置窗口初始大小
@@ -26,9 +29,18 @@ class ConcatFrameWindow(QDialog):
         try:
             # 获取文件夹中的所有图片文件
             image_files = [f for f in os.listdir(self.folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-            
-            # 打开图片并按行拼接
-            images = [Image.open(os.path.join(self.folder_path, img)) for img in image_files]
+
+            # 定义一个正则表达式，用于提取文件名中的数字部分
+            frame_pattern = re.compile(r'frame(\d+)\.png')
+
+            # 筛选出编号在 [st, ed] 范围内的图片路径
+            images = [
+                Image.open(os.path.join(self.folder_path, img)) for img in image_files
+                if frame_pattern.match(img) and self.st <= int(frame_pattern.match(img).group(1)) <= self.ed
+            ]
+
+            # # 获取所有图片的完整路径
+            # images = [Image.open(os.path.join(self.folder_path, img)) for img in image_files]
             
             # 设置每行的图片数量
             images_per_row = self.parent.frameConcatValue
