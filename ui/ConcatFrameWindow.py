@@ -17,7 +17,7 @@ class ConcatFrameWindow(QDialog):
 
         self.setWindowTitle("Concated Frame")
         # 设置窗口初始大小
-        self.resize(800, 600)  # 调整窗口大小，800x600为默认尺寸
+        # self.resize(800, 600)  # 调整窗口大小，800x600为默认尺寸
 
         # 处理文件夹中的图片
         self.process_images()
@@ -81,7 +81,24 @@ class ConcatFrameWindow(QDialog):
             # 创建标签来显示图片
             label = QLabel(self)
             pixmap = QPixmap(self.Concated_frame_path)
-            label.setPixmap(pixmap.scaled(600, 400, Qt.KeepAspectRatio))
+
+            if not pixmap.isNull():
+                # 获取原始宽度和高度
+                original_width = pixmap.width()
+                original_height = pixmap.height()
+
+                # 如果图片的宽度大于1600，按比例缩小
+                target_width = 1600
+                if original_width > target_width:
+                    # 根据目标宽度计算新的高度，保持长宽比
+                    target_height = int((original_height * target_width) / original_width)
+                    # 缩放图像，保持比例
+                    scaled_pixmap = pixmap.scaled(target_width, target_height, Qt.KeepAspectRatio)
+                else:
+                    # 如果图片的宽度小于或等于1600，保持原尺寸
+                    scaled_pixmap = pixmap
+            label.setPixmap(scaled_pixmap)
+            # label.setPixmap(pixmap.scaled(600, 400, Qt.KeepAspectRatio))
             label.setAlignment(Qt.AlignCenter)
 
             # 设置布局
