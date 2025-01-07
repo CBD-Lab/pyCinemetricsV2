@@ -1,8 +1,8 @@
-from PySide2.QtGui import QPixmap
-from PySide2.QtWidgets import (
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
     QDockWidget, QLabel, QDialog, QVBoxLayout, QTabWidget, QWidget, QHBoxLayout, QPushButton
 )
-from PySide2.QtCore import Qt
+from PySide6.QtCore import Qt
 
 
 class Analyze(QDockWidget):

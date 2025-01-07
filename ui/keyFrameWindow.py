@@ -2,9 +2,9 @@ import os
 import re
 import cv2
 from pathlib import Path
-from PySide2.QtWidgets import QDialog, QListWidget, QListWidgetItem, QHBoxLayout, QScrollArea, QPushButton, QVBoxLayout
-from PySide2.QtGui import QPixmap, QIcon, QImage
-from PySide2.QtCore import Qt, QSize
+from PySide6.QtWidgets import QDialog, QListWidget, QListWidgetItem, QHBoxLayout, QScrollArea, QPushButton, QVBoxLayout
+from PySide6.QtGui import QPixmap, QIcon, QImage
+from PySide6.QtCore import Qt, QSize
 from algorithms.key_frame_extract import getEffectiveFrame
 
 # 添加帧的弹出窗口

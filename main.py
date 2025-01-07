@@ -1,8 +1,9 @@
 import sys
-from PySide2.QtWidgets import (
-    QApplication, QMainWindow, QAction, QMessageBox, QProgressBar
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QMessageBox, QProgressBar
 )
-from PySide2.QtCore import Qt, Signal
+from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, Signal
 from ui.timeline import Timeline
 from ui.info import Info
 from ui.analyze import Analyze
@@ -149,7 +150,7 @@ def main():
     _ = MainWindow()
 
     # 启动应用程序事件循环
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 if __name__ == '__main__':
     main()

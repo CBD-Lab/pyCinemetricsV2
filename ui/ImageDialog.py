@@ -1,7 +1,7 @@
 import os
-from PySide2.QtCore import Qt
-from PySide2.QtGui import QPixmap
-from PySide2.QtWidgets import QApplication, QDialog, QTabWidget, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QApplication, QDialog, QTabWidget, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QPushButton
 
 class ImageDialog(QDialog):
     def __init__(self, image_paths, parent=None):

@@ -1,9 +1,9 @@
 import sys
 import os
 import re
-from PySide2.QtCore import Qt
-from PySide2.QtGui import QImage, QPixmap
-from PySide2.QtWidgets import QApplication, QDialog, QLabel, QVBoxLayout, QFileDialog, QPushButton, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import QApplication, QDialog, QLabel, QVBoxLayout, QFileDialog, QPushButton, QWidget
 from PIL import Image
 
 class ConcatFrameWindow(QDialog):

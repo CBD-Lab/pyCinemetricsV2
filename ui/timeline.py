@@ -2,9 +2,9 @@ import os
 import re
 import cv2
 from pathlib import Path
-from PySide2.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QMenu, QAction, QAbstractItemView
-from PySide2.QtGui import QPixmap, QIcon
-from PySide2.QtCore import Qt, QSize
+from PySide6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QMenu, QAbstractItemView
+from PySide6.QtGui import QPixmap, QIcon, QAction
+from PySide6.QtCore import Qt, QSize
 
 from algorithms.img2Colors import ColorAnalysis
 from ui.keyFrameWindow import KeyframeWindow

@@ -3,12 +3,12 @@ import os
 import shutil
 import numpy as np
 import pandas as pd
-from PySide2.QtGui import QPixmap, QRegExpValidator
-from PySide2.QtWidgets import (
+from PySide6.QtGui import QPixmap, QRegularExpressionValidator
+from PySide6.QtWidgets import (
     QDockWidget, QPushButton, QLabel, QFileDialog, QSlider, QMessageBox, QVBoxLayout,
     QWidget, QGridLayout, QLineEdit
 )
-from PySide2.QtCore import Qt, QRegExp
+from PySide6.QtCore import Qt, QRegularExpression
 from algorithms.objectDetection import ObjectDetection
 from algorithms.shotscale import ShotScale
 from algorithms.pyqtgraph import TransNetPlot
@@ -43,7 +43,7 @@ class Control(QDockWidget):
 
         # 按钮
         self.shotcut = self.create_function_button("Shot", self.shotcut_transNetV2)
-        self.shotlenimgplot = self.create_function_button("ShotlenImg", self.plot_transnet_pyqtgraph)
+        self.shotlenimgplot = self.create_function_button("Shotlen", self.plot_transnet_pyqtgraph)
 
         self.frameconcat = self.create_function_button("ShotStitch", self.getframeconcat)
         
@@ -155,8 +155,8 @@ class Control(QDockWidget):
         input_box.setMaximumWidth(80)
 
         # 限制输入为 0 到 2000000 的数字
-        regex = QRegExp("^[0-9]{1,7}$")  # 只允许 1-7 位数字
-        validator = QRegExpValidator(regex, input_box)
+        regex = QRegularExpression("^[0-9]{1,7}$")  # 只允许 1-7 位数字
+        validator = QRegularExpressionValidator(regex, input_box)
         input_box.setValidator(validator)
 
         return input_box

@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
-from PySide2.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal
 
 class Similarity(QThread):
     #  通过类成员对象定义信号对象

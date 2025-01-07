@@ -1,7 +1,7 @@
-from PySide2.QtWidgets import (
+from PySide6.QtWidgets import (
     QDockWidget, QTableWidget, QTableWidgetItem
 )
-from PySide2.QtCore import Signal
+from PySide6.QtCore import Signal
 import os
 import cv2
 

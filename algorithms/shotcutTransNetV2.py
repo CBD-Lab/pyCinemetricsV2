@@ -295,7 +295,7 @@ class TransNetV2(QThread):
         for sublist in scenes:
             number.append(sublist[1])
         number.pop() # 由于最后一个镜头不是真正的结尾，所以每次都会去除
-        print(number)
+        # print(number)
 
         cap = cv2.VideoCapture(self.video_fn)
         frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -350,6 +350,7 @@ class TransNetV2(QThread):
         shot_len = []
 
         start = -1
+        print(number)
         for i in number:
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
             _, img = cap.read()
@@ -359,7 +360,7 @@ class TransNetV2(QThread):
             if i != 0:
                 shot_len.append([start, i, i - start + 1])
             start = i
-        print(shot_len)
+        # print(shot_len)
         print("TransNetV2 completed")  # 把画图放进来
         # 发送shot_finished信号，进行处理
         self.parent.parent.shot_finished.emit()

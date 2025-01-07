@@ -1,5 +1,5 @@
-from PySide2 import QtWidgets, QtCore
-from PySide2.QtCore import *
+from PySide6 import QtWidgets, QtCore
+from PySide6.QtCore import *
 
 class ProcessBar(QtWidgets.QDialog):
     def __init__(self, work):

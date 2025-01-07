@@ -1,7 +1,7 @@
 import sys
 import csv
 import os
-from PySide2.QtWidgets import QApplication, QDialog, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QFileDialog
+from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QFileDialog
 
 class CsvViewerDialog(QDialog):
     def __init__(self, csv_path):

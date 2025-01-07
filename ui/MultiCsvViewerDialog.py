@@ -2,7 +2,7 @@ import os
 import csv
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from PySide2.QtWidgets import QApplication, QDialog, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, QMessageBox
 
 class MultiCsvViewerDialog(QDialog):
     def __init__(self, folder_path, output_csv_filename="all_info.xlsx"):

@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 #
-# PySide2 example for VLC Python bindings
+# PySide6 example for VLC Python bindings
 # Copyright (C) 2009-2010 the VideoLAN team
 #
 # This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
 #
 '''
-A simple example for VLC python bindings using PySide2.
+A simple example for VLC python bindings using PySide6.
 
 Author: Saveliy Yusufov, Columbia University, sy2685@columbia.edu
 Date: 25 December 2018
@@ -28,7 +28,7 @@ import sys
 import platform
 import time
 
-from PySide2 import QtWidgets, QtGui, QtCore
+from PySide6 import QtWidgets, QtGui, QtCore
 import os
 import vlc
 
