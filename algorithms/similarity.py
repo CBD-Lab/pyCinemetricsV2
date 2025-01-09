@@ -117,9 +117,7 @@ class Similarity(QThread):
         ma_5s = self.moving_average(1 - frame_similarities, window_size_5s)
 
         # 绘制每帧的预测概率图和移动平均图
-        plt.figure(figsize=(12, 6))
-        # 设置坐标轴背景颜色
-        plt.gca().set_facecolor('white')  # 白色背景
+        plt.figure(figsize=(12, 6), facecolor='white')
         # 设置 y 轴范围
         plt.ylim(0, 1)
         # 设置 x 轴范围
@@ -202,9 +200,7 @@ class Similarity(QThread):
         # 反转图像
 
         # 绘制每帧的预测概率图和移动平均图
-        plt.figure(figsize=(12, 6))
-        # 设置坐标轴背景颜色
-        plt.gca().set_facecolor('white')  # 白色背景
+        plt.figure(figsize=(12, 6), facecolor='white')
         # 设置 y 轴范围
         plt.ylim(0, 1)
         # 设置 x 轴范围

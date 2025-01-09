@@ -24,7 +24,7 @@ from ui.concatFrameWindow import ConcatFrameWindow
 from ui.csvViewerDialog import CsvViewerDialog
 from ui.multiCsvViewerDialog import MultiCsvViewerDialog
 from ui.progressBar import pyqtbar
-from ui.ImageDialog import ImageDialog
+from ui.imageDialog import ImageDialog
 
 class Control(QDockWidget):
     def __init__(self, parent, filename):
