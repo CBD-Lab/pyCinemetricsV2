@@ -5,9 +5,8 @@ from whisper.model import ModelDimensions
 import torch
 import cv2
 import csv
-from algorithms.wordcloud2frame import WordCloud2Frame
-from ui.progressbar import pyqtbar
-from ui.progressbar import *
+from algorithms.wordCloud2Frame import WordCloud2Frame
+from ui.progressBar import *
 from moviepy import VideoFileClip
 
 
@@ -17,11 +16,10 @@ class SubtitleProcessorWhisper(QThread):
     subtitlesignal = Signal(str)
     finished = Signal(bool)
 
-    def __init__(self, v_path, save_path, subtitleValue, parent):
+    def __init__(self, v_path, save_path, parent):
         super(SubtitleProcessorWhisper, self).__init__()
         self.v_path = v_path
         self.save_path = save_path
-        self.subtitleValue = subtitleValue
         self.parent = parent
 
     def run(self):
@@ -31,7 +29,7 @@ class SubtitleProcessorWhisper(QThread):
         self.extract_audio(self.v_path, audio_path)
         try:
             # 使用 Whisper 库转录音频文件
-            checkpoint = torch.load(r"./models/large-v3-turbo.pt",
+            checkpoint = torch.load(r"./models/large-v3-turbo.pt", weights_only=True,
                                     map_location="cuda" if torch.cuda.is_available() else "cpu")
             dims = ModelDimensions(**checkpoint['dims'])
             model = Whisper(dims)

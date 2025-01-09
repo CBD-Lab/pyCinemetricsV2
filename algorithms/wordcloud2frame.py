@@ -1,29 +1,27 @@
-import jieba
-import matplotlib.pyplot as plt
-import csv
-from wordcloud import WordCloud
+import os
 import csv
 import nltk
+import jieba
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
 from nltk.corpus import stopwords
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-import os
-
-# 确保 NLTK 数据可用
-# 设置本地的 NLTK 数据路径
-nltk_data_path = "models/nltk_data"  # 假设数据存放在当前目录下的 "nltk_data" 文件夹中
-
-# 将本地路径添加到 NLTK 数据路径中
-nltk.data.path.append(nltk_data_path)
 from nltk import word_tokenize, pos_tag
 from nltk.corpus import stopwords
 
-# 测试是否加载成功
-print(nltk.data.find('tokenizers/punkt'))
-print(nltk.data.find('taggers/averaged_perceptron_tagger'))
-print(nltk.data.find('corpora/stopwords'))
+# 确保 NLTK 数据可用
+# 设置本地的 NLTK 数据路径
+nltk_data_path = "./models/nltk_data"  # 假设数据存放在当前目录下的 "nltk_data" 文件夹中
+
+# 将本地路径添加到 NLTK 数据路径的最前面
+nltk.data.path.insert(0, nltk_data_path)
+
+
+# # 测试是否加载成功
+# print(nltk.data.find('tokenizers/punkt'))
+# print(nltk.data.find('taggers/averaged_perceptron_tagger'))
+# print(nltk.data.find('corpora/stopwords'))
 
 #三个方法
 class WordCloud2Frame:

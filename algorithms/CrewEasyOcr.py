@@ -4,9 +4,9 @@ import easyocr
 import cv2
 import csv
 import numpy as np
-from algorithms.wordcloud2frame import WordCloud2Frame
-from ui.progressbar import pyqtbar
-from ui.progressbar import *
+from algorithms.wordCloud2Frame import WordCloud2Frame
+from ui.progressBar import pyqtbar
+from ui.progressBar import *
 
 class CrewProcessor(QThread):
     #  通过类成员对象定义信号对象

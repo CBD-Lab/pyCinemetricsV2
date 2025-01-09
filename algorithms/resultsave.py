@@ -76,31 +76,43 @@ class Resultsave:
             csv_file.close()
 
     def plot_scatter_3d(self, all_colors):
-        plt.clf()
-        plt.style.use('dark_background')
-        movie_colors = []
+        plt.clf()  # 清除之前的图像
+        plt.style.use('dark_background')  # 设置图表的背景为黑色
 
+        movie_colors = []
+        
+        # 合并嵌套的颜色列表
         for i in all_colors:
             i = list(i)
             for j in i:
                 movie_colors.append(list(j))
 
-        x = []
-        y = []
-        z = []
-        dot_color = []
+        # 用于存储 RGB 坐标和颜色
+        x, y, z, dot_color = [], [], [], []
 
+        # 分离 R, G, B，并转换为 [0, 1] 范围内的颜色
         for c in movie_colors:
-            x.append(c[0])
-            y.append(c[1])
-            z.append(c[2])
-            dot_color.append([c[0] / 255, c[1] / 255, c[2] / 255, 1])
+            x.append(c[0])  # 红色通道
+            y.append(c[1])  # 绿色通道
+            z.append(c[2])  # 蓝色通道
+            dot_color.append([c[0] / 255, c[1] / 255, c[2] / 255, 1])  # 标准化颜色并添加透明度
 
-        # fig, ax = plt.subplots(subplot_kw={"projection": None})
+        # 创建一个 3D 图
         fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
-        ax.scatter(x, y, z, c=dot_color, facecolor='black', edgecolor='black')
-        fig.canvas.manager.set_window_title('imgcolors')
-        plt.title("color analysis")
+        # 绘制 3D 散点图
+        ax.scatter(x, y, z, c=dot_color)
+
+        # 设置标题
+        plt.title("3D Color Analysis")
+
+        # 设置轴标签
+        ax.set_xlabel('Red (R)')   # X轴表示红色通道
+        ax.set_ylabel('Green (G)') # Y轴表示绿色通道
+        ax.set_zlabel('Blue (B)')  # Z轴表示蓝色通道
+
+        # 设置窗口标题
+        fig.canvas.manager.set_window_title('Color Scatter')
+
+        # 保存图像到指定路径
         plt.savefig(os.path.join(self.image_save_path, 'colors.png'))
-        # plt.show()

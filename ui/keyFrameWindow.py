@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QDialog, QListWidget, QListWidgetItem, QHBoxLayout, QScrollArea, QPushButton, QVBoxLayout
 from PySide6.QtGui import QPixmap, QIcon, QImage
 from PySide6.QtCore import Qt, QSize
-from algorithms.key_frame_extract import getEffectiveFrame
+from algorithms.keyFrameExtract import getEffectiveFrame
 
 # 添加帧的弹出窗口
 class KeyframeWindow(QDialog):

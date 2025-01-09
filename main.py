@@ -1,4 +1,6 @@
 import sys
+import qdarktheme
+import cv2
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QMessageBox, QProgressBar
 )
@@ -8,10 +10,10 @@ from ui.timeline import Timeline
 from ui.info import Info
 from ui.analyze import Analyze
 from ui.subtitle import Subtitle
-import qdarktheme
 from concurrent.futures import ThreadPoolExecutor
-from ui.vlcplayer import VLCPlayer
+from ui.vlcPlayer import VLCPlayer
 from ui.control import Control
+
 
 
 # from ui.subtitleEasyOcr import getsubtitleEasyOcr,subtitle2Srt
@@ -32,6 +34,7 @@ class MainWindow(QMainWindow):
         self.AnalyzeImgPath = ''  # Analyze窗口中要显示的图像的路径
         self.colorsC = 2
         self.init_ui()  # 初始化界面
+        self.frameCnt = 0
 
     def init_ui(self):
         # 初始化窗口界面
@@ -135,6 +138,8 @@ class MainWindow(QMainWindow):
         else:
             self.setWindowTitle('PyCinemetrics - %s' % filename)  # 显示当前文件名
             self.filename = filename
+            cap = cv2.VideoCapture(self.filename)
+            self.frameCnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
 
 

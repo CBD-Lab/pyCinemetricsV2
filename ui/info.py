@@ -1,9 +1,9 @@
+import os
+import cv2
 from PySide6.QtWidgets import (
     QDockWidget, QTableWidget, QTableWidgetItem
 )
 from PySide6.QtCore import Signal
-import os
-import cv2
 
 
 class Info(QDockWidget):

@@ -6,8 +6,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.cluster.vq import vq, kmeans, whiten
 import math
-from algorithms.resultsave import Resultsave
-from ui.progressbar import *
+from algorithms.resultSave import Resultsave
+from ui.progressBar import *
 
 class ColorAnalysis(QThread):
     #  通过类成员对象定义信号对象

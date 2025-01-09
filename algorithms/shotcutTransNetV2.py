@@ -2,8 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 import cv2
-from algorithms.resultsave import Resultsave
-from ui.progressbar import *
+from algorithms.resultSave import Resultsave
+from ui.progressBar import *
 
 class TransNetV2(QThread):
     #  通过类成员对象定义信号对象
@@ -114,7 +114,7 @@ class TransNetV2(QThread):
         pre = self.pre
         window = self.window
         look_window = self.lookup_window
-        print(f'pre:{pre}, window: {window}, look_wiodow: {look_window}')
+        print(f'pre:{pre}, window: {window}, look_window: {look_window}')
 
         assert len(frames.shape) == 4 and list(frames.shape[1:]) == [input_height, input_width, 3], \
             "[TransNet] Inputs shape must be [frames, height, width, 3]."

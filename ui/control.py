@@ -1,27 +1,29 @@
 import functools
 import os
+import cv2
 import shutil
 import numpy as np
 import pandas as pd
 from PySide6.QtGui import QPixmap, QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QDockWidget, QPushButton, QLabel, QFileDialog, QSlider, QMessageBox, QVBoxLayout,
-    QWidget, QGridLayout, QLineEdit
+    QWidget, QGridLayout, QLineEdit, QComboBox
 )
 from PySide6.QtCore import Qt, QRegularExpression
 from algorithms.objectDetection import ObjectDetection
-from algorithms.shotscale import ShotScale
-from algorithms.pyqtgraph import TransNetPlot
+from algorithms.shotScale import ShotScale
+from algorithms.pyqtGraph import TransNetPlot
 from algorithms.shotcutTransNetV2 import TransNetV2
 from algorithms.subtitleEasyOcr import SubtitleProcessor
 from algorithms.subtitleWhisper import SubtitleProcessorWhisper
+from algorithms.translateSubtitles import TranslateSrtProcessor
 from algorithms.CrewEasyOcr import CrewProcessor
 from algorithms.img2Colors import ColorAnalysis
 from algorithms.similarity import Similarity
-from ui.ConcatFrameWindow import ConcatFrameWindow
-from ui.CsvViewerDialog import CsvViewerDialog
-from ui.MultiCsvViewerDialog import MultiCsvViewerDialog
-from ui.progressbar import pyqtbar
+from ui.concatFrameWindow import ConcatFrameWindow
+from ui.csvViewerDialog import CsvViewerDialog
+from ui.multiCsvViewerDialog import MultiCsvViewerDialog
+from ui.progressBar import pyqtbar
 from ui.ImageDialog import ImageDialog
 
 class Control(QDockWidget):
@@ -36,6 +38,7 @@ class Control(QDockWidget):
         self.frameConcatValue = 10 # 拼接时每行的帧图个数
         self.init_ui()
 
+
     def init_ui(self):
 
         grid_layout = QGridLayout()
@@ -45,10 +48,11 @@ class Control(QDockWidget):
         self.shotcut = self.create_function_button("Shot", self.shotcut_transNetV2)
         self.shotlenimgplot = self.create_function_button("Shotlen", self.plot_transnet_pyqtgraph)
 
-        self.frameconcat = self.create_function_button("ShotStitch", self.getframeconcat)
+        self.frameconcat = self.create_function_button("Mosaic", self.getframeconcat)
         
         self.subtitle = self.create_function_button("Subtitles", self.getsubtitles)
-        self.credits = self.create_function_button("Crew", self.getcredits)
+        self.credits = self.create_function_button("MetaData", self.getcredits)
+        self.translate_button = self.create_function_button("Translate", self.translate_srt)
 
         self.objects = self.create_function_button("Objects", self.object_detect)
 
@@ -95,6 +99,10 @@ class Control(QDockWidget):
         self.labelFrameConcat = QLabel("10", self)
         self.labelFrameConcat.setFixedWidth(30)  # 同样预留固定宽度
 
+        # 下拉框
+        self.object_box = self.create_function_box(["shot", "keyFrame"])
+        self.similarity_box = self.create_function_box(["single", "double"])
+
         # 创建一个网格布局，并将进度条和标签添加到网格中
         # 第零行， 分镜+csv显示
         grid_layout.addWidget(self.shotcut, 0, 0)
@@ -110,9 +118,11 @@ class Control(QDockWidget):
         # 第三行，字幕
         grid_layout.addWidget(self.subtitle, 2, 0)
         grid_layout.addWidget(self.credits, 2, 1)
+        grid_layout.addWidget(self.translate_button,2,2)
 
         # 第四行，目标检测
         grid_layout.addWidget(self.objects, 3, 0)
+        grid_layout.addWidget(self.object_box, 3, 1)
 
         # 第五行，shotscale
         grid_layout.addWidget(self.shotscale, 4, 0)
@@ -128,13 +138,13 @@ class Control(QDockWidget):
         # 第八行
         grid_layout.addWidget(self.sim_st_input, 8, 0)
         grid_layout.addWidget(self.sim_ed_input, 8, 1)
+        grid_layout.addWidget(self.similarity_box, 8, 2)
         grid_layout.addWidget(self.shot_similarity, 8, 4)
 
         # 创建一个QWidget，将主布局设置为这个QWidget的布局
         widget = QWidget()
         widget.setLayout(grid_layout)
         self.setWidget(widget)
-
 
     def create_function_button(self, description, function):
         """创建功能按钮并绑定功能函数"""
@@ -160,6 +170,17 @@ class Control(QDockWidget):
         input_box.setValidator(validator)
 
         return input_box
+
+    def create_function_box(self, items):
+        # 创建一个 QComboBox 下拉框
+        combo_box = QComboBox()
+        combo_box.setMaximumWidth(80)
+        # 使用 for 循环将 items 中的每个项添加到下拉框
+        for item in items:
+            combo_box.addItem(item)
+
+        # 返回创建好的 QComboBox
+        return combo_box
 
     def toggle_buttons(self, enable):
         """启用或禁用所有按钮"""
@@ -246,9 +267,20 @@ class Control(QDockWidget):
             return
         st = self.fc_st_input.text()
         ed = self.fc_ed_input.text()
-        concatframe_window = ConcatFrameWindow(self.frame_save, int(st), int(ed), self)
-        concatframe_window.finished.connect(lambda: self.toggle_buttons(True))
-        concatframe_window.exec_()
+
+
+        if not st and not ed:
+            self.show_warning("Error", f"Start and end cannot be empty!")
+        elif not st:
+            self.show_warning("Error", f"Start cannot be empty!")
+        elif not ed:
+            self.show_warning("Error", f"End cannot be empty!")
+        elif int(st) < 0 or int(ed) >= self.parent.frameCnt or int(st) > int(ed):
+            self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
+        else:
+            concatframe_window = ConcatFrameWindow(self.frame_save, int(st), int(ed), self)
+            concatframe_window.finished.connect(lambda: self.toggle_buttons(True))
+            concatframe_window.exec_()
 
     # shot_len图颜色更改
     def plot_transnet_pyqtgraph(self):
@@ -261,10 +293,8 @@ class Control(QDockWidget):
 
     # 字幕
     def getsubtitles(self, filename):
-        if os.path.exists(self.frame_save):
-            imgpath = os.path.basename(self.filename)[0:-4]
-            save_path = r"./img/" + imgpath + "/"
-            subtitleprocesser = SubtitleProcessorWhisper(self.filename, save_path, self.subtitleValue, self.parent)
+        if os.path.exists(self.image_save):
+            subtitleprocesser = SubtitleProcessorWhisper(self.filename, self.image_save, self.parent)
         else:
             self.toggle_buttons(True)
             return
@@ -276,6 +306,17 @@ class Control(QDockWidget):
         self.parent.shot_finished.emit()
         bar = pyqtbar(subtitleprocesser)
     
+    def translate_srt(self):
+        # save_path = r"./img/" + imgpath + "/"
+        # input_srt_file = save_path+"subtitle.srt"
+        input_srt_file = self.image_save + "/subtitle.srt"
+        # Create the TranslateSrtProcessor instance
+        translate_processor = TranslateSrtProcessor(input_srt_file, self.image_save, self)
+        translate_processor.subtitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
+        translate_processor.finished.connect(lambda: self.toggle_buttons(True))
+        self.parent.shot_finished.emit()
+        bar = pyqtbar(translate_processor)
+
     # 演职员表
     def getcredits(self, filename):
         if os.path.exists("./img/"+os.path.basename(self.filename)[0:-4]+"/frame"):
@@ -295,9 +336,8 @@ class Control(QDockWidget):
 
     # 目标检测
     def object_detect(self):
-        if os.path.exists(self.frame_save):
-            imgpath = os.path.basename(self.filename)[0:-4]
-            objectdetection = ObjectDetection(self.filename, r"./img/" + imgpath)
+        if os.path.exists(self.image_save):
+            objectdetection = ObjectDetection(self.filename, self.image_save, self.object_box.currentIndex())
         else:
             self.toggle_buttons(True)
             return
@@ -381,22 +421,25 @@ class Control(QDockWidget):
         if os.path.exists(self.filename):
             st = self.sim_st_input.text()
             ed = self.sim_ed_input.text()
+            
 
-            if st and ed:
-                similarity = Similarity(self.filename, int(st), int(ed))
-            elif not st and not ed:
+            if not st and not ed:
                 self.show_warning("Error", f"Start and end cannot be empty!")
             elif not st:
                 self.show_warning("Error", f"Start cannot be empty!")
-            else:
+            elif not ed:
                 self.show_warning("Error", f"End cannot be empty!")
+            elif int(st) < 0 or int(ed) >= self.parent.frameCnt or int(st) > int(ed):
+                self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
+            else:
+                similarity = Similarity(self.filename, int(st), int(ed), self.similarity_box.currentIndex())
+                image_names = np.array(["/similarity.png", "/similarity_reversed.png"])
+                similarity.finished.connect(lambda: self.similarity_toggle_buttons(True, image_names))
+                bar = pyqtbar(similarity)
         else:
             self.toggle_buttons(True)
             return
-        image_names = np.array(["/similarity.png", "/similarity_reversed.png"])
-        similarity.finished.connect(lambda: self.similarity_toggle_buttons(True, image_names))
-        bar = pyqtbar(similarity)
-    
+
 
         
         

@@ -6,8 +6,8 @@ import math
 import numpy as np
 from matplotlib import pyplot as plt
 from collections import Counter
-from algorithms.shotscaleconfig import *
-from ui.progressbar import *
+from algorithms.shotScaleConfig import *
+from ui.progressBar import *
 
 class ShotScale(QThread):
     #  通过类成员对象定义信号对象
