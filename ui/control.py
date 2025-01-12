@@ -62,7 +62,7 @@ class Control(QDockWidget):
 
         self.show_csv = self.create_function_button("ShowCsv", self.show_mult_csv)
 
-        self.shot_similarity = self.create_function_button("Similarity", self.frame_similarity)
+        self.shot_similarity = self.create_function_button("Pace", self.frame_similarity)
 
         # 输入框
         # frameconcat 输入框
@@ -433,7 +433,7 @@ class Control(QDockWidget):
                 self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
             else:
                 similarity = Similarity(self.filename, int(st), int(ed), self.similarity_box.currentIndex())
-                image_names = np.array(["/similarity.png", "/similarity_reversed.png"])
+                image_names = np.array(["/mosaic.png", "/mosaic_reversed.png"])
                 similarity.finished.connect(lambda: self.similarity_toggle_buttons(True, image_names))
                 bar = pyqtbar(similarity)
         else:
