@@ -433,7 +433,7 @@ class Control(QDockWidget):
                 self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
             else:
                 similarity = Similarity(self.filename, int(st), int(ed), self.similarity_box.currentIndex())
-                image_names = np.array(["/mosaic.png", "/mosaic_reversed.png"])
+                image_names = np.array(["/pace.png", "/pace_reversed.png"])
                 similarity.finished.connect(lambda: self.similarity_toggle_buttons(True, image_names))
                 bar = pyqtbar(similarity)
         else:
