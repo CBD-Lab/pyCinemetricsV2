@@ -108,7 +108,7 @@ class ConcatFrameWindow(QDialog):
                 y_offset += row.height
             
             # 保存拼接后的图片
-            self.Concated_frame_path = os.path.join(self.parent.image_save, "Concated_frame.png")
+            self.Concated_frame_path = os.path.join(self.parent.image_save, "mosaic.png")
             self.final_image.save(self.Concated_frame_path)
         except:
             return
