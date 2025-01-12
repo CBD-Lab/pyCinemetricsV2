@@ -349,7 +349,7 @@ class Similarity(QThread):
             cap.release()  # 释放视频捕获对象
 
         # 保存到文件
-        image_save_path = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/similarity.png"
+        image_save_path = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/pace.png"
         plt.savefig(image_save_path)
         plt.close()
 
@@ -411,7 +411,7 @@ class Similarity(QThread):
             cap.release()  # 释放视频捕获对象
 
         # 保存到文件
-        image_save_path = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/similarity_reversed.png"
+        image_save_path = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/pace_reversed.png"
         plt.savefig(image_save_path)
         plt.close()
 
