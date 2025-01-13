@@ -142,6 +142,7 @@ class TransNetV2(QThread):
         # 进度条设置
         total_number = len(frames)  # 总任务数
 
+
         for inp in input_iterator():
             if self.is_stop:
                 self.finished.emit(True)
@@ -149,25 +150,27 @@ class TransNetV2(QThread):
 
             single_frame_pred, all_frames_pred = self.predict_raw(inp)
             predictions_window = single_frame_pred.numpy()[0, pre: pre + window, 0]
-            predictions.append(predictions_window)
 
+            # ----------------------
+            # 实现实时插入
+            # 将第一帧处理
+            if (len(predictions) == 0):
+                arr = np.zeros(window, dtype=int)
+                arr[0] = 1
+                self.save_pred(arr, -1)
+            # 其他帧判断处理
+            elif (np.any(predictions_window > 0.3)):
+                self.save_pred(predictions_window, min(len(predictions) * window, len(frames)))
+
+            # 结束 -----------------
+
+            predictions.append(predictions_window)
             print("\r[TransNetV2] Processing video frames {}/{}".format(
                 min(len(predictions) * window, len(frames)), len(frames)
             ), end="")
 
-            # ----------------------
-            # 实现实时插入
-            pred = np.concatenate([single_ for single_ in predictions])
-            if (np.any(predictions_window > 0.3)):
-                self.save_pred(pred[:min(len(pred), len(frames))])
-
-            # 结束 -----------------
-
             percent = round(float(min(len(predictions) * window, len(frames)) / len(frames)) * 100)
             self.signal.emit(percent, min(len(predictions) * window, len(frames)), total_number, "shotcut")  # 发送实时任务进度和总任务进度
-
-            # percent = round(float(min(len(predictions) * 50, len(frames))/ len(frames)) * 100)
-            # bar.set_value(min(len(predictions) * 50, len(frames)), len(frames), percent)  # 刷新进度条
 
         if self.is_stop:
             self.finished.emit(True)
@@ -211,7 +214,6 @@ class TransNetV2(QThread):
             frames.append(frame)
         cap.release()
         self.video = np.array(frames)
-        # self.video = np.frombuffer(video_stream, np.uint8).reshape([-1, 27, 48, 3])
         self.predict_video(self.video)
         self.signal.emit(101, 101, 101,"shotcut")  # 完事了再发一次
         if self.is_stop:
@@ -219,6 +221,19 @@ class TransNetV2(QThread):
             pass
         else:
             self.run_moveon()
+
+    @staticmethod
+    def pred_window_to_shotList(predictions: np.ndarray, prev_cnt, threshold: float = 0.3):
+        predictions = (predictions > threshold).astype(np.uint8)
+
+        shotList = []
+        if prev_cnt == 0:
+            shotList.append(0)
+
+        for i, t in enumerate(predictions):
+            if t == 1:
+                shotList.append(i + prev_cnt + 1)
+        return shotList
 
     @staticmethod
     def predictions_to_scenes(predictions: np.ndarray, threshold: float = 0.3):
@@ -286,21 +301,14 @@ class TransNetV2(QThread):
     def stop(self):
         self.is_stop = 1
 
-    def save_pred(self, pred):
+    def save_pred(self, pred, prev_count):
 
-        scenes = self.predictions_to_scenes(pred)
-
-        number = []
-        number.append(0)
-        for sublist in scenes:
-            number.append(sublist[1])
-        number.pop() # 由于最后一个镜头不是真正的结尾，所以每次都会去除
-        # print(number)
+        number = self.pred_window_to_shotList(pred, prev_count)
+        print(number)
 
         cap = cv2.VideoCapture(self.video_fn)
         frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         frame_len = len(str((int)(frame_count)))
-
         os.makedirs(self.frame_save, exist_ok=True)
 
         # 后续的分镜图片
@@ -316,32 +324,15 @@ class TransNetV2(QThread):
     # 画图 和 保存
     def run_moveon(self):
 
-        # 删除旧的分镜
-        # if not (os.path.exists(self.image_save)):
-        #     os.mkdir(self.image_save)
-        # if not (os.path.exists(self.frame_save)):
-        #     os.mkdir(self.frame_save)
-        # else:
-        #     imgfiles = os.listdir(os.path.join(os.getcwd(), self.frame_save))
-        #     for f in imgfiles:
-        #         os.remove(os.path.join(os.getcwd(), self.frame_save, f))
-
         video_frames = self.video
         single_frame_predictions = self.single_frame
-        # video_frames, single_frame_predictions, all_frame_predictions = \
-        #     pyqtbar(model)#model.predict_video(file)
 
         scenes = self.predictions_to_scenes(single_frame_predictions)
 
         np.savetxt(os.path.join(self.image_save, "video.txt"), scenes, fmt="%d")
 
-        # pil_image = self.visualize_predictions(
-        #     video_frames, predictions=(single_frame_predictions, all_frame_predictions))
-        # pil_image.save(file + ".vis.png")
-
         number = []
         number = getFrame_number(os.path.join(self.image_save, "video.txt"))
-        # number.pop()
 
         cap = cv2.VideoCapture(self.video_fn)
         frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -357,8 +348,10 @@ class TransNetV2(QThread):
             j = ('%0{}d'.format(frame_len)) % i
             cv2.imwrite(os.path.join(self.frame_save, f"frame{str(j)}.png"), img)
 
-            if i != 0:
+            if i == len(number) - 1:
                 shot_len.append([start, i, i - start + 1])
+            elif i != 0:
+                shot_len.append([start, i - 1, i - start])
             start = i
         # print(shot_len)
         print("TransNetV2 completed")  # 把画图放进来
@@ -370,18 +363,14 @@ class TransNetV2(QThread):
         rs.diff_csv(0, shot_len)
         self.finished.emit(True)
 
-        #self.parent.shotcut.clicked.connect(lambda: self.parent.colors.setEnabled(True))
-
 def getFrame_number(f_path):
     f = open(f_path, 'r')
     Frame_number = []
-    Frame_number.append(0)
 
     for line in f:
         NumList = [int(n) for n in line.split()]
-        Frame_number.append(NumList[1])
+        Frame_number.append(NumList[0])
 
-    print(Frame_number)
     return Frame_number
 
 

@@ -23,8 +23,7 @@ class KeyframeWindow(QDialog):
             self.frames_dict = self.extract_keyframes(start_frame, end_frame)
         else:
             self.frames_dict = self.extract_frames(start_frame, end_frame)
-
-
+        
         # 布局
         layout = QVBoxLayout()
         
@@ -33,6 +32,7 @@ class KeyframeWindow(QDialog):
         self.listWidget.setSelectionMode(QListWidget.MultiSelection)  # 设置列表项为多选模式
         self.listWidget.setViewMode(QListWidget.IconMode)  # 设置为图标模式
         self.listWidget.setIconSize(QSize(100, 67))  # 设置每个图标的大小
+        self.listWidget.setMinimumWidth(1200) 
         self.listWidget.setSpacing(10)  # 设置图标之间的间距
         self.listWidget.setFlow(QListWidget.LeftToRight)  # 水平排列
 
@@ -67,7 +67,7 @@ class KeyframeWindow(QDialog):
         self.setLayout(layout)
 
         # 设置窗口初始大小
-        self.resize(800, 600)  # 调整窗口大小，800x600为默认尺寸
+        self.resize(1200, 600)  # 调整窗口大小，800x600为默认尺寸
 
     def extract_keyframes(self, st, ed):
         # 打开视频文件, 获取总帧数

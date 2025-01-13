@@ -5,9 +5,9 @@ from pathlib import Path
 from PySide6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QMenu, QAbstractItemView
 from PySide6.QtGui import QPixmap, QIcon, QAction
 from PySide6.QtCore import Qt, QSize
-
 from algorithms.img2Colors import ColorAnalysis
 from ui.keyFrameWindow import KeyframeWindow
+from algorithms.resultSave import Resultsave
 
 class Timeline(QDockWidget):
     def __init__(self, parent):
@@ -15,7 +15,6 @@ class Timeline(QDockWidget):
         super().__init__('Timeline/Storyboard', parent)
         self.parent = parent  # 父组件，通常是主窗口
         self.init_ui()  # 调用初始化UI的方法
-
         # 连接父组件发出的信号到相应的槽
         self.parent.filename_changed.connect(self.on_filename_changed)  # 切换打开的视频信号
         self.parent.shot_finished.connect(self.on_shot_finished)  # 视频分镜完成信号（该信号不传参所以额外加一个函数传参）
@@ -174,9 +173,58 @@ class Timeline(QDockWidget):
     def show_keyframe_window(self, video_path, st, ed, mode = "key"):
         # 创建一个新的窗口显示提取的关键帧
         keyframe_window = KeyframeWindow(video_path, st, ed, mode, self)
+        # 在窗口关闭时, 读取self.listWidget获得帧号，重新保存图片和文件
+        keyframe_window.finished.connect(self.update_shot_frame)
         keyframe_window.exec_()
     
-    
+    def update_shot_frame(self):
+        # 获取 QListWidget 中所有的帧号
+        number = [int(self.listWidget.item(i).text()) for i in range(self.listWidget.count())]
+        print(number)
+
+        # 打开视频文件
+        cap = cv2.VideoCapture(self.parent.filename)
+        frame_count = (int)(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_len = len(str((int)(frame_count)))
+
+        # 1. 更新video.txt
+        self.generate_shot_intervals(number, frame_count, self.parent.image_save + "/video.txt")
+
+        # 2. 更新frame文件夹中的图片和shotlen图像
+        shot_len = []
+        start = -1
+        for i in number:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            _, img = cap.read()
+            j = ('%0{}d'.format(frame_len)) % i
+            cv2.imwrite(os.path.join(self.parent.frame_save, f"frame{str(j)}.png"), img)
+
+            if i == len(number) - 1:
+                shot_len.append([start, i, i - start + 1])
+            elif i != 0:
+                shot_len.append([start, i - 1, i - start])
+            start = i
+
+        print(shot_len)
+        rs = Resultsave(self.parent.image_save + "/")
+        rs.diff_csv(0, shot_len)
+        rs.plot_transnet_shotcut(shot_len)
+        self.parent.control.shotcut_toggle_buttons(True)
+
+    # 保存video.txt 和 shotlen.csv
+    def generate_shot_intervals(self, frame_numbers, total_frames, output_path):
+        # 打开文件进行写入
+        with open(output_path, 'w') as file:
+            # 处理每两个连续的帧号
+            for i in range(len(frame_numbers) - 1):
+                start_frame = frame_numbers[i]
+                end_frame = frame_numbers[i + 1] - 1  # 结束帧是下一个帧号减去1
+                file.write(f"{start_frame} {end_frame}\n")
+            
+            # 处理最后一个镜头区间
+            last_shot_start = frame_numbers[-1]
+            file.write(f"{last_shot_start} {total_frames - 1}\n")  # 视频的最后一帧是 total_frames - 1
+
     def sort_listWidget(self):
         # 获取所有的 QListWidgetItem
         items = []
