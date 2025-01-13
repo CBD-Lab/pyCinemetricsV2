@@ -17,7 +17,8 @@ from algorithms.shotcutTransNetV2 import TransNetV2
 from algorithms.subtitleEasyOcr import SubtitleProcessor
 from algorithms.subtitleWhisper import SubtitleProcessorWhisper
 from algorithms.translateSubtitles import TranslateSrtProcessor
-from algorithms.CrewEasyOcr import CrewProcessor
+from algorithms.crewEasyOcr import CrewProcessor
+from algorithms.interTitle import InterTitle
 from algorithms.img2Colors import ColorAnalysis
 from algorithms.similarity import Similarity
 from ui.concatFrameWindow import ConcatFrameWindow
@@ -53,6 +54,7 @@ class Control(QDockWidget):
         self.subtitle = self.create_function_button("Subtitles", self.getsubtitles)
         self.credits = self.create_function_button("MetaData", self.getcredits)
         self.translate_button = self.create_function_button("Translate", self.translate_srt)
+        self.intertitle = self.create_function_button("Intertitle", self.getintertitle)
 
         self.objects = self.create_function_button("Objects", self.object_detect)
 
@@ -118,7 +120,9 @@ class Control(QDockWidget):
         # 第三行，字幕
         grid_layout.addWidget(self.subtitle, 2, 0)
         grid_layout.addWidget(self.credits, 2, 1)
-        grid_layout.addWidget(self.translate_button,2,2)
+        grid_layout.addWidget(self.translate_button,2, 2)
+        grid_layout.addWidget(self.intertitle, 2, 3)
+
 
         # 第四行，目标检测
         grid_layout.addWidget(self.objects, 3, 0)
@@ -205,8 +209,8 @@ class Control(QDockWidget):
     def shotcut_toggle_buttons(self, enable, img_name:str="shotlen.png"):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
-        shot_len_ImgPath = os.path.join(self.image_save, img_name)
-        self.parent.analyze.add_tab_with_image(img_name[0:-4], shot_len_ImgPath)
+        ImgPath = os.path.join(self.image_save, img_name)
+        self.parent.analyze.add_tab_with_image(img_name[0:-4], ImgPath)
     
     def imageAnalyze_toggle_buttons(self, enable, img_name:str="colors.png"):
         """启用或禁用所有按钮"""
@@ -218,8 +222,14 @@ class Control(QDockWidget):
     def subtitles_toggle_buttons(self, enable, img_name:str="subtitle.png"):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
-        shot_len_ImgPath = os.path.join(self.image_save, img_name)
-        self.parent.analyze.add_tab_with_image(img_name[0:-4], shot_len_ImgPath)
+        ImgPath = os.path.join(self.image_save, img_name)
+        self.parent.analyze.add_tab_with_image(img_name[0:-4], ImgPath)
+
+    def intertitles_toggle_buttons(self, enable, img_name:str="intertitle.png"):
+        """启用或禁用所有按钮"""
+        self.toggle_buttons(enable)
+        ImgPath = os.path.join(self.image_save, img_name)
+        self.parent.analyze.add_tab_with_image(img_name[0:-4], ImgPath)
 
     def similarity_toggle_buttons(self, enable, image_names:str):
         """启用或禁用所有按钮"""
@@ -333,6 +343,20 @@ class Control(QDockWidget):
         self.video_path = self.filename  # 视频路径
         self.parent.shot_finished.emit()
         bar = pyqtbar(creditsprocesser)
+
+    # 字幕卡
+    def getintertitle(self,filename):
+        if os.path.exists(self.image_save):
+            intertitle = InterTitle(self.filename, self.image_save, self.subtitleValue, self.parent)
+        else:
+            self.toggle_buttons(True)
+            return
+        intertitle.intertitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
+        intertitle.finished.connect(lambda: self.intertitles_toggle_buttons(True))
+
+        self.video_path = self.filename  # 视频路径
+        self.parent.shot_finished.emit()
+        bar = pyqtbar(intertitle)
 
     # 目标检测
     def object_detect(self):
