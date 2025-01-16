@@ -36,13 +36,14 @@ class TransNetV2(QThread):
                 print(f"[TransNetV2] Using weights from {model_dir}.")
 
         self._input_size = (27, 48, 3)
-        try:
-            self.model = tf.saved_model.load(model_dir)
-            print(model_dir)
-        except OSError as exc:
-            raise IOError(f"[TransNetV2] It seems that files in {model_dir} are corrupted or missing. "
-                          f"Re-download them manually and retry. For more info, see: "
-                          f"https://github.com/soCzech/TransNetV2/issues/1#issuecomment-647357796") from exc
+        self.model_dir = model_dir
+        # try:
+        #     self.model = tf.saved_model.load(model_dir)
+        #     print(model_dir)
+        # except OSError as exc:
+        #     raise IOError(f"[TransNetV2] It seems that files in {model_dir} are corrupted or missing. "
+        #                   f"Re-download them manually and retry. For more info, see: "
+        #                   f"https://github.com/soCzech/TransNetV2/issues/1#issuecomment-647357796") from exc
 
     def predict_raw(self, frames: np.ndarray):
         assert len(frames.shape) == 5 and frames.shape[2:] == self._input_size, \
@@ -181,7 +182,15 @@ class TransNetV2(QThread):
             # return single_frame_pred[:len(frames)], all_frames_pred[:len(frames)]  # remove extra padded frames
 
     def run(self):
+        self.signal.emit(0, 0, 0,"shotcut")
 
+        try:
+            self.model = tf.saved_model.load(self.model_dir)
+            print(self.model_dir)
+        except OSError as exc:
+            raise IOError(f"[TransNetV2] It seems that files in {self.model_dir} are corrupted or missing. "
+                          f"Re-download them manually and retry. For more info, see: "
+                          f"https://github.com/soCzech/TransNetV2/issues/1#issuecomment-647357796") from exc
         # 删除旧的分镜
         if not (os.path.exists(self.image_save)):
             os.mkdir(self.image_save)
@@ -334,30 +343,20 @@ class TransNetV2(QThread):
         number = []
         number = getFrame_number(os.path.join(self.image_save, "video.txt"))
 
-        cap = cv2.VideoCapture(self.video_fn)
-        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        print(f"frame_count:{frame_count}")
-        frame_len = len(str((int)(frame_count)))
         shot_len = []
-
         start = -1
         print(number)
-        for i in number:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            _, img = cap.read()
-            j = ('%0{}d'.format(frame_len)) % i
-            cv2.imwrite(os.path.join(self.frame_save, f"frame{str(j)}.png"), img)
+        for idx, i in enumerate(number):
 
-            if i == len(number) - 1:
+            if idx == (len(number) - 1):
                 shot_len.append([start, i, i - start + 1])
-            elif i != 0:
+            elif idx != 0:
                 shot_len.append([start, i - 1, i - start])
             start = i
-        # print(shot_len)
+
         print("TransNetV2 completed")  # 把画图放进来
         # 发送shot_finished信号，进行处理
         self.parent.parent.shot_finished.emit()
-
         rs = Resultsave(self.image_save + "/")
         rs.plot_transnet_shotcut(shot_len)
         rs.diff_csv(0, shot_len)

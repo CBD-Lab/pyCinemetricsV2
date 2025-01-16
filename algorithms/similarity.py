@@ -34,7 +34,7 @@ class Similarity(QThread):
         else:
             self.plot_and_save_double(frame_similarities)
             
-        self.signal.emit(101, 101, 101, "similarity")  # 完事了再发一次
+        self.signal.emit(101, 101, 101, "mosaic")  # 完事了再发一次
 
         self.finished.emit(True)
 
@@ -91,7 +91,7 @@ class Similarity(QThread):
 
             # 更新进度信号
             percent = round((frame_count / (end - start)) * 100)
-            self.signal.emit(percent, frame_count, end - start, "similarity")
+            self.signal.emit(percent, frame_count, end - start, "mosaic")
 
             prev_frame = curr_frame
 

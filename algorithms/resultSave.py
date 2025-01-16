@@ -12,30 +12,30 @@ class Resultsave:
     def diff_csv(self, diff, shot_len):
         # 确定文件路径
         shotcut_csv_path = os.path.join(self.image_save_path, "shotcut.csv")
-        shotlen_csv_path = os.path.join(self.image_save_path, "shotlen.csv")
+        shotlen_csv_path = os.path.join(self.image_save_path, "shotlength.csv")
 
-        # 如果文件已经存在，则删除它
-        if os.path.exists(shotcut_csv_path):
-            os.remove(shotcut_csv_path)
+        # # 如果文件已经存在，则删除它
+        # if os.path.exists(shotcut_csv_path):
+        #     os.remove(shotcut_csv_path)
 
         if os.path.exists(shotlen_csv_path):
             os.remove(shotlen_csv_path)
 
         # 然后再创建新文件
-        shotcut_csv = open(shotcut_csv_path, "w+", newline='')
+        # shotcut_csv = open(shotcut_csv_path, "w+", newline='')
         shotlen_csv = open(shotlen_csv_path, "w+", newline='')
         
-        name1 = ['Id', 'frameDiff']
+        # name1 = ['Id', 'frameDiff']
         name2 = ['start', 'end', 'length']
 
-        if diff != 0:
-            try:
-                writer = csv.writer(shotcut_csv)
-                writer.writerow(name1)
-                for i in range(len(diff)):
-                    writer.writerow([i, diff[i]])
-            finally:
-                shotcut_csv.close()
+        # if diff != 0:
+        #     try:
+        #         writer = csv.writer(shotcut_csv)
+        #         writer.writerow(name1)
+        #         for i in range(len(diff)):
+        #             writer.writerow([i, diff[i]])
+        #     finally:
+        #         shotcut_csv.close()
 
         try:
             writer = csv.writer(shotlen_csv)
@@ -54,7 +54,7 @@ class Resultsave:
         plt.style.use('dark_background')
         plt.bar(shot_id, shot_length, color='blue')
         plt.title('shot length',color="white")
-        plt.savefig(os.path.join(self.image_save_path, 'shotlen.png'))
+        plt.savefig(os.path.join(self.image_save_path, 'shotlength.png'))
 
     def color_csv(self, colors, colorsC):
         csv_file = open(os.path.join(self.image_save_path, "colors.csv"), "w+", newline='')

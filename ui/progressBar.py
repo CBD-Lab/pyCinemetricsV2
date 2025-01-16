@@ -9,7 +9,7 @@ class ProcessBar(QtWidgets.QDialog):
         
     def call_backlog(self, msg, task_number, total_task_number, task_name=""):
         if task_number == 0 and total_task_number == 0:
-            self.setWindowTitle(self.tr('Processing...'))
+            self.setWindowTitle(self.tr('Model loading...'))
         elif msg == 101 and task_number == 101 and total_task_number == 101:
             print("Thread quit")
             self.close()

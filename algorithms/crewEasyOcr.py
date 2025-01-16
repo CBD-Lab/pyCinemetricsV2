@@ -103,9 +103,10 @@ class CrewProcessor(QThread):
             else:
                 img1=img2
             i = i + self.CrewValue
-            percent = round(float(i / frame_count) * 100)
-            self.signal.emit(percent, i, frame_count, "CrewDetect")   # 刷新进度条 不严谨
-        self.signal.emit(101, 101, 101, "CrewDetect")  # 完事了再发一次
+            percent = round(float((i + 1) / frame_count) * 100)
+            print(percent)
+            self.signal.emit(percent, i + 1, frame_count, "M")
+        self.signal.emit(101, 101, 101, "matedata")  # 完事了再发一次
 
         if self.is_stop:
             self.finished.emit(True)
@@ -148,15 +149,15 @@ class CrewProcessor(QThread):
             # 将所有行垂直拼接
             stitched_image = np.vstack(stitched_image)
             # 保存拼接后的图像
-            cv2.imwrite(self.save_path + 'Crew.png', stitched_image)
-            print("Stitched image saved as 'Crew.png'")
+            cv2.imwrite(self.save_path + 'matedata.png', stitched_image)
+            print("Stitched image saved as 'matedata.png'")
 
     def Crew2Srt(self,CrewList, savePath):
 
         # path为输出路径和文件名，newline=''是为了不出现空行
-        csv_path = os.path.join(savePath, "Crew.csv")
+        csv_path = os.path.join(savePath, "matedata.csv")
         csv_File = open(csv_path, "w+", newline = '')
-        srt_File = os.path.join(savePath, "Crew.srt")
+        srt_File = os.path.join(savePath, "matedata.srt")
         # name为列名
         name = ['FrameId','Crew']
 

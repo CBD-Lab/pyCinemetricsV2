@@ -1,8 +1,9 @@
 import os
 import torch
-from whisper import Whisper
-from whisper.model import ModelDimensions
-import torch
+from faster_whisper import WhisperModel
+from moviepy import VideoFileClip
+from pydub import AudioSegment
+import time
 import cv2
 import csv
 from algorithms.wordCloud2Frame import WordCloud2Frame
@@ -23,49 +24,84 @@ class SubtitleProcessorWhisper(QThread):
         self.parent = parent
 
     def run(self):
-        # 从视频中提取音频文件
-        self.signal.emit(50, 0, 1, "CrewDetect")
+        # 从视频中提取音频文件并分段
+        self.signal.emit(50, 0, 1, "subtitle")
         audio_path = os.path.join(self.save_path, "subtitle.mp3")
         self.extract_audio(self.v_path, audio_path)
-        try:
-            # 使用 Whisper 库转录音频文件
-            checkpoint = torch.load(r"./models/large-v3-turbo.pt", weights_only=True,
-                                    map_location="cuda" if torch.cuda.is_available() else "cpu")
-            dims = ModelDimensions(**checkpoint['dims'])
-            model = Whisper(dims)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            model.to("cuda" if torch.cuda.is_available() else "cpu")
-            result = model.transcribe(audio_path)
 
-            # 将转录结果保存到 CSV 和 SRT 文件中
+        try:
+            # 分段处理音频
+            audio = AudioSegment.from_file(audio_path)
+            duration = len(audio)  # 总时长（毫秒）
+            num_segments = 4  # 分成四段
+            segment_duration = duration // num_segments
+
             subtitleList = []
             subtitleStr = ""
-            for segment in result["segments"]:
-                subtitleList.append([round(segment["start"], 2), round(segment["end"], 2), segment["text"]])
-                # subtitleList.append([segment["start"], segment["end"], segment["text"]])
-                subtitleStr += segment["text"] + "\n"
+            current_offset = 0  # 当前时间偏移量
+
+            # Use faster-whisper for transcription
+            model = WhisperModel(r"models/faster-whisper-base")  # Load the small model of faster-whisper
+
+            for i in range(num_segments):
+                start_time = i * segment_duration
+                end_time = min((i + 1) * segment_duration, duration)
+                audio_segment = audio[start_time:end_time]
+
+                # 保存每段音频为临时文件
+                segment_path = os.path.join(self.save_path, f"segment_{i + 1}.mp3")
+                audio_segment.export(segment_path, format="mp3")
+
+                try:
+                    # Start transcription
+                    start_time = time.time()  # Start the timer
+                    segments, _ = model.transcribe(segment_path)  # Get transcriptions
+
+                    for segment in segments:
+                        adjusted_start = round(segment.start + current_offset / 1000, 2)
+                        adjusted_end = round(segment.end + current_offset / 1000, 2)
+                        subtitleList.append([adjusted_start, adjusted_end, segment.text])
+                        subtitleStr += segment.text + "\n"
+
+                    # End transcription
+                    end_time = time.time()  # End the timer
+                    print(f"Time taken for segment {i + 1}: {end_time - start_time} seconds")
+
+                finally:
+                    # 删除临时文件，确保无论发生什么情况都清理文件
+                    if os.path.exists(segment_path):
+                        os.remove(segment_path)
+
+                # 更新偏移量
+                current_offset += segment_duration
+
+            # 将转录结果保存到 CSV 和 SRT 文件中
             self.subtitle2Srt(subtitleList, self.save_path)
             self.subtitle2Csv(subtitleList, self.save_path)
 
             # 发送字幕给主线程
             self.subtitlesignal.emit(subtitleStr)
             # 完成处理
-            self.signal.emit(101, 101, 101, "CrewDetect")
+            self.signal.emit(101, 101, 101, "subtitle")
             self.finished.emit(True)
-        except:
+        except Exception as e:
+            print(f"Error during processing: {e}")
             # 完成处理
-            self.signal.emit(101, 101, 101, "CrewDetect")
+            self.signal.emit(101, 101, 101, "subtitle")
             self.finished.emit(True)
 
     def extract_audio(self, v_path, audio_path):
         video = VideoFileClip(v_path)
-        audio = video.audio
-        audio.write_audiofile(audio_path, codec='mp3')
+        try:
+            audio = video.audio
+            audio.write_audiofile(audio_path, codec='mp3')
+        finally:
+            video.close()  # 确保释放资源
 
     def subtitle2Srt(self, subtitleList, savePath):
         # Save subtitles to SRT format
         srt_File = os.path.join(savePath, "subtitle.srt")
-        with open(srt_File, "w", encoding="utf-8") as f:
+        with open(srt_File, "w", encoding="utf-8") as f:  # 强制使用 utf-8 编码
             for idx, item in enumerate(subtitleList):
                 start_time = self.format_time(item[0])
                 end_time = self.format_time(item[1])
@@ -76,7 +112,7 @@ class SubtitleProcessorWhisper(QThread):
     def subtitle2Csv(self, subtitleList, savePath):
         # Save subtitles to CSV format
         csv_path = os.path.join(savePath, "subtitle.csv")
-        with open(csv_path, "w+", newline="") as csv_File:
+        with open(csv_path, "w+", newline="", encoding="utf-8") as csv_File:  # 强制使用 utf-8 编码
             writer = csv.writer(csv_File)
             writer.writerow(["start_seconds", "end_seconds", "Subtitles"])
             for item in subtitleList:

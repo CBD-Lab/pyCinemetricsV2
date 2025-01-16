@@ -8,13 +8,14 @@ import shutil
 import torchvision.models as models
 import torch.cuda
 import nltk
+import matplotlib.pyplot as plt
+import jieba.posseg as pseg
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
 from nltk.corpus import stopwords
 from nltk import word_tokenize, pos_tag
 from nltk.corpus import stopwords
 from wordcloud import WordCloud
-import matplotlib.pyplot as plt
 from transformers import GitProcessor, GitForCausalLM
 from transformers import MarianMTModel, MarianTokenizer
 from scipy.signal import argrelextrema
@@ -59,7 +60,7 @@ class ObjectDetection(QThread):
         self.video_path = video
         self.txt_path = os.path.join(self.image_path, 'video.txt')  # 帧号范围文件
         self.output_dir = os.path.join(self.image_path, 'ImagetoText')
-        self.output_csv_path = os.path.join(self.image_path, 'image_descriptions.csv')
+        self.output_csv_path = os.path.join(self.image_path, 'image2Text.csv')
         self.option = option
         self.transform = transforms.Compose([
             transforms.Resize(256),
@@ -172,17 +173,13 @@ class ObjectDetection(QThread):
                 print(f"段 {seg_idx} 没有足够的帧计算帧差")
             task_id += 1
             percent = round(float(task_id / total_number) * 100)
-            self.signal.emit(percent, task_id, total_number, "objectDetect")  # 发送实时任务进度和总任务进度
-        self.signal.emit(99, task_id, total_number, "objectDetect")  # 发送实时任务进度和总任务进度
+            self.signal.emit(percent, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
+        self.signal.emit(99, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
         cap.release()
         print(f"所有段处理完成，结果保存在: {output_dir}")
 
     def run(self):
-        # input_csv = os.path.join(self.image_path, 'image_descriptions.csv')  # 替换为你的 CSV 文件路径
-        # output_dir = self.image_path  # 替换为你的输出目录
-        # self.generate_word_cloud_from_csv(input_csv, output_dir)
-        # self.signal.emit(101, 101, 101, "objectDetect")  # 完成后发送信号
-        # self.finished.emit(True)
+
         if self.option == 0:
             process_dir = self.frame_path
         elif self.option == 1:
@@ -198,7 +195,7 @@ class ObjectDetection(QThread):
             subtitle_model = GitForCausalLM.from_pretrained(subtitle_model_path)
             subtitle_model.to(device)
         except Exception as e:
-            self.signal.emit(101, 101, 101, "objectDetect")  # 完成后发送信号
+            self.signal.emit(101, 101, 101, "image2Text")  # 完成后发送信号
             self.finished.emit(True)
             print(f"加载GitBase模型时出错: {e}")
             return
@@ -220,7 +217,7 @@ class ObjectDetection(QThread):
                 csv_writer = csv.writer(csvfile)
                 
                 # 写入 CSV 表头
-                csv_writer.writerow(["Filename", "Caption_en", "Caption_zh-cn)"])
+                csv_writer.writerow(["Filename", "Caption_en", "Caption_zh-cn"])
                 
                 # 遍历目录中的所有图片文件
                 for filename in os.listdir(process_dir):
@@ -261,27 +258,28 @@ class ObjectDetection(QThread):
                             self.finished.emit(True)
                             break
                     percent = round(float(task_id / total_number) * 100)
-                    self.signal.emit(percent, task_id, total_number, "objectDetect")  # 发送实时任务进度和总任务进度
+                    self.signal.emit(percent, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
                     task_id += 1
 
             if self.is_stop:
                 self.finished.emit(True)
                 pass
             else:
-                input_csv = os.path.join(self.image_path, 'image_descriptions.csv')  # 替换为你的 CSV 文件路径
+                input_csv = os.path.join(self.image_path, 'image2Text.csv')  # 替换为你的 CSV 文件路径
                 output_dir = self.image_path  # 替换为你的输出目录
 
                 # 检查文件是否存在
                 if not os.path.exists(input_csv):
                     print(f"Error: File {input_csv} does not exist!")
                 else:
-                    self.generate_word_cloud_from_csv(input_csv, output_dir)
-                self.signal.emit(101, 101, 101, "objectDetect")  # 完成后发送信号
+                    self.generate_word_cloud_from_csv_en(input_csv, 1, os.path.join(output_dir, "wordcloud_en.png"))    # 生成英文词云
+                    self.generate_word_cloud_from_csv_ch(input_csv, 2, os.path.join(output_dir, "wordcloud_ch.png"))    # 生成中文词云
+                self.signal.emit(101, 101, 101, "image2Text")  # 完成后发送信号
                 self.finished.emit(True)
                 pass
         except PermissionError as e:
             print(f"文件写入失败: {e}")
-            self.signal.emit(101, 101, 101, "objectDetect")  # 完成后发送信号
+            self.signal.emit(101, 101, 101, "image2Text")  # 完成后发送信号
             self.finished.emit(True)
     
 
@@ -305,8 +303,62 @@ class ObjectDetection(QThread):
             return None
         return all_nouns
 
-    
-    def generate_word_cloud_from_csv(self,filename, output_dir):
+    def generate_word_cloud_from_csv_ch(self, filename, col, output_path):
+
+        # 读取 CSV 文件中的每行句子
+        data = []
+        try:
+            with open(filename, 'r') as csvfile:
+                csv_reader = csv.reader(csvfile)
+                for row in csv_reader:
+                    if len(row) > 1:
+                        # 保留空格
+                        data.append(row[col].strip())  # 假设目标列col
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return
+        
+        if not data:
+            print("Error: No data found in the CSV file.")
+            return
+        
+        # 将所有句子拼接成一个字符串
+        all_text = " ".join(data)  # 保留原始空格
+
+        if not all_text.strip():
+            print("Error: No valid text found.")
+            return
+
+        # 自定义停用词（可以添加更多停用词）
+        stop_words = set([
+            '的', '了', '在', '是', '我', '他', '她', '它', '我们', '你', '他们', '这', '那',
+            '与', '和', '对', '为', '上', '下', '中', '大', '小', '要', '也', '就', '不', '能'
+        ])
+
+        # 使用 jieba 提取名词
+        words = pseg.cut(all_text)  # 使用 pseg.cut() 进行词性标注
+        nouns = [word for word, flag in words if 'n' in flag]  # 提取名词（词性标记中包含 'n' 表示名词）
+
+        # 去除停用词
+        filtered_nouns = [word for word in nouns if word not in stop_words]
+
+        # 统计词频
+        word_counts = Counter(filtered_nouns)
+
+        # 去除低频词（例如，出现次数小于 2 的词）
+        min_freq = 2
+        filtered_word_counts = {word: count for word, count in word_counts.items() if count >= min_freq}
+
+        font_path = "./fonts/msyh.ttf"
+        wordcloud = WordCloud(width=800, height=600, background_color='white', font_path=font_path).generate_from_frequencies(filtered_word_counts)
+        print("Wordcloud image size:", wordcloud.to_array().shape)
+        # 显示并保存词云图
+        plt.figure(figsize=(8, 6))  # 设置显示的尺寸
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis('off')
+        plt.savefig(output_path)
+
+    def generate_word_cloud_from_csv_en(self, filename, col, output_path):
         """
         从 CSV 文件生成基于名词的词云图，并逐句提取名词。
         """
@@ -319,7 +371,7 @@ class ObjectDetection(QThread):
                 for row in csv_reader:
                     if len(row) > 1:
                         # 保留空格
-                        data.append(row[1].strip())  # 假设目标列是第二列
+                        data.append(row[col].strip())  # 假设目标列col
         except Exception as e:
             print(f"Error reading CSV file: {e}")
             return
@@ -330,6 +382,7 @@ class ObjectDetection(QThread):
 
         # 将所有句子拼接成一个字符串
         all_text = " ".join(data)  # 保留原始空格
+
         if not all_text.strip():
             print("Error: No valid text found.")
             return
@@ -352,7 +405,6 @@ class ObjectDetection(QThread):
         if not filtered_tf:
             print("Error: No valid words for the word cloud.")
             return
-        print(filtered_tf)
 
         # 生成词云图
         wordcloud = WordCloud(width=800, height=600, background_color='white').generate_from_frequencies(filtered_tf)
@@ -361,50 +413,7 @@ class ObjectDetection(QThread):
         plt.figure(figsize=(8, 6))  # 设置显示的尺寸
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis('off')
-        output_image = os.path.join(output_dir, "wordcloud_en.png")
-        plt.savefig(output_image)
-
-
-        # 加载预训练模型和分词器
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        translate_model_path = './models/opus-mt-en-zh'  # 英文到中文的翻译模型
-        translate_model = MarianMTModel.from_pretrained(translate_model_path)
-        translate_tokenizer = MarianTokenizer.from_pretrained(translate_model_path)
-        translate_model.to(device)
-
-
-
-        # 翻译函数
-        def translate(text):
-            inputs = translate_tokenizer(text, return_tensors="pt", padding=True)
-            translated = translate_model.generate(**inputs)
-            return translate_tokenizer.decode(translated[0], skip_special_tokens=True)
-    
-        # 使用模型翻译词汇
-        translated_tf = {}
-        for word, count in filtered_tf.items():
-            translated_tf[translate(word)] = count
-        
-        print(translated_tf)
-
-        # 生成中文词云图
-        # 生成中文词云图，并指定支持中文的字体
-        font_path = "./fonts/msyh.ttf"  # 设置为本地中文字体的路径，例如 C:\Windows\Fonts\msyh.ttc (Microsoft YaHei)
-        wordcloud_zh = WordCloud(
-            width=800, 
-            height=600, 
-            background_color='white', 
-            font_path=font_path
-        ).generate_from_frequencies(translated_tf)
-        print("Chinese Wordcloud image size:", wordcloud_zh.to_array().shape)
-        
-        # 显示并保存中文词云图
-        plt.figure(figsize=(8, 6))  # 设置显示的尺寸
-        plt.imshow(wordcloud_zh, interpolation='bilinear')
-        plt.axis('off')
-        output_image_zh = os.path.join(output_dir, "wordcloud.png")
-        plt.savefig(output_image_zh)
-
+        plt.savefig(output_path)
 
     def stop(self):
         self.is_stop = 1
