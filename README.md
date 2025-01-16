@@ -2,10 +2,19 @@
 
 ## English Version
 
-1. After cloning the repository, the only missing file is the `models` folder. You can download the `models` folder from the cloud storage and place it in the directory to run the program.
-2. Shared model files via cloud storage:
-   - Link: [https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234](https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234)
-   - Extraction Code: 1234
+1. After cloning, the only missing folder is `models`. After downloading the `models` folder from the cloud drive, just place it in the directory, and it will run.
+2. Files shared through the cloud drive: Model files  
+   - Link: [https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234](https://pan.baidu.com/s/1GMlOYvglimvSoIcIowuM0A?pwd=1234)  
+   - Extraction code: 1234
+3. Model and functionality correspondences:
+    - Video boundary detection: transnetv2
+    - Face recognition: buffalo_l
+    - Speech-to-text subtitles: faster-whisper-base
+    - Object detection: git-base
+    - Translation: opus-mt-en-zh
+4. Potential issues:
+    - If `pip install insightface` fails, please install it manually. [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
+    - Some models are outdated, so the latest numpy cannot be used. Version 1.26.0 is compatible.
 
 ---
 
@@ -13,5 +22,15 @@
 
 1. clone之后仅缺少`models`文件夹，网盘下载`models`文件夹后放进目录即可运行。
 2. 通过网盘分享的文件：模型文件  
-   - 链接: [https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234](https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234)  
+   - 链接: [https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234](https://pan.baidu.com/s/1GMlOYvglimvSoIcIowuM0A?pwd=1234)  
    - 提取码: 1234
+3. 模型与功能对应
+    - 视频边界检测：transnetv2
+    - 人脸识别：buffalo_l
+    - 语音识别字幕：faster-whisper-base
+    - 目标检测：git-base
+    - 翻译： opus-mt-en-zh
+4. 可能会遇到的问题
+    - 如果pip install insightface出错，请手动安装。 [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
+    - 因为有些模型比较旧，所以不能使用最新的numpy，1.26.0是可用的。
+

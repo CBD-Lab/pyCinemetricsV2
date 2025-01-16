@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QRegularExpression
 from algorithms.objectDetection import ObjectDetection
 from algorithms.shotScale import ShotScale
-from algorithms.plotShotlength import TransNetPlot, TransNetThread
+from algorithms.plotShotLength import TransNetPlot, TransNetThread
 from algorithms.shotcutTransNetV2 import TransNetV2
 from algorithms.subtitleEasyOcr import SubtitleProcessor
 from algorithms.subtitleWhisper import SubtitleProcessorWhisper
