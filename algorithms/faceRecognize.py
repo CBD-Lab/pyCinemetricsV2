@@ -46,7 +46,7 @@ class FaceDetection(QThread):
         
     # 初始化模型
     def initialize_model(self):
-        app = FaceAnalysis(root = "./" ,providers=['CPUExecutionProvider'])  # 使用 CPU
+        app = FaceAnalysis(providers=['CPUExecutionProvider'])  # 使用 CPU
         app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id = -1 强制使用 CPU
         return app
 
@@ -427,19 +427,19 @@ class MappingApp(QDialog):
         top_layout.setAlignment(Qt.AlignLeft)
 
         # 添加 "Run Recognition" 按钮
-        run_recognition_button = QPushButton("Run Recognition")
+        run_recognition_button = QPushButton("Face Recognition")
         run_recognition_button.setFixedWidth(150)
         run_recognition_button.clicked.connect(self.run_recognition)
         top_layout.addWidget(run_recognition_button)
 
         # 添加 "打开文件夹目录" 按钮
-        open_dir_button = QPushButton("Open Folder Directory")
+        open_dir_button = QPushButton("Open Folder")
         open_dir_button.setFixedWidth(150)
         open_dir_button.clicked.connect(self.open_directory)
         top_layout.addWidget(open_dir_button)
 
         # 添加 "Generate New CSV" 按钮
-        generate_csv_button = QPushButton("Generate New CSV")
+        generate_csv_button = QPushButton("Update CSV")
         generate_csv_button.setFixedWidth(150)
         generate_csv_button.clicked.connect(self.generate_new_csv)
         top_layout.addWidget(generate_csv_button)
@@ -462,7 +462,7 @@ class MappingApp(QDialog):
         bottom_layout.setAlignment(Qt.AlignLeft)
 
         # 添加 "保存" 按钮
-        save_button = QPushButton("Save Changes")
+        save_button = QPushButton("Update Changes")
         save_button.setFixedWidth(150)
         save_button.clicked.connect(self.save_changes)
         bottom_layout.addWidget(save_button)
@@ -506,7 +506,7 @@ class MappingApp(QDialog):
 
             # 水平布局：用于放置文本框和删除按钮
             horizontal_layout = QHBoxLayout()
-            horizontal_layout.setAlignment(Qt.AlignCenter)
+            horizontal_layout.setAlignment(Qt.AlignLeft)
 
             # 可编辑的文本框
             name_edit = QLineEdit(image_name)
@@ -515,8 +515,8 @@ class MappingApp(QDialog):
             horizontal_layout.addWidget(name_edit)
 
             # 删除图片按钮，放在文本框右侧
-            delete_button = QPushButton("Del")
-            delete_button.setFixedWidth(30)
+            delete_button = QPushButton("Delete")
+            delete_button.setFixedWidth(70)
             delete_button.clicked.connect(lambda checked=False, image_name=image_name: self.delete_image(image_name))
             horizontal_layout.addWidget(delete_button)
 
@@ -548,7 +548,7 @@ class MappingApp(QDialog):
         bar = pyqtbar(facedetection)
 
         # 连接识别完成的信号，刷新图片显示
-        facedetection.finished.connect(self.refresh_images)
+        facedetection.finished.connect(lambda: self.refresh_images(True))
 
     def refresh_images(self, success=True):
         """刷新图片显示。"""
@@ -599,18 +599,47 @@ class MappingApp(QDialog):
                 import pandas as pd
                 df = pd.read_csv(csv_path)
 
+                # 定义允许的图片后缀
+                valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".webp"}
+
+                # 获取文件夹中所有图片名字（去掉后缀，过滤仅限图片）
+                existing_images = set(
+                    os.path.splitext(file)[0] for file in os.listdir(self.image_folder)
+                    if os.path.splitext(file)[1].lower() in valid_extensions
+                )
+                print(f"Existing images in folder (without extensions): {existing_images}")  # 调试信息
+
+                # 检查 CSV 是否包含 Name 列
+                if 'Name' not in df.columns:
+                    QMessageBox.warning(self, "Error", "CSV file does not contain 'Name' column.")
+                    return
+                
                 # 更新 CSV 中的 Name 列
                 for new_name, original_name in new_names.items():
-                    df['Name'] = df['Name'].replace(original_name, new_name)
+                    # 去除后缀
+                    new_name_no_ext = os.path.splitext(new_name)[0]
+                    original_name_no_ext = os.path.splitext(original_name)[0]
+                    
+                    print('new_name', new_name_no_ext, 'original_name', original_name_no_ext)  # 调试信息
+                    
+                    if original_name_no_ext in df['Name'].values:
+                        print(f"Replacing {original_name_no_ext} with {new_name_no_ext}")  # 调试信息
+                        df['Name'] = df['Name'].replace(original_name_no_ext, new_name_no_ext)
+
+                # 删除 CSV 中不存在于文件夹中的图片名字对应的行
+                df = df[df['Name'].isin(existing_images)]
+                print(f"Filtered DataFrame:\n{df}")  # 调试信息
 
                 # 保存更新后的 CSV
                 df.to_csv(csv_path, index=False)
-                print(f"Updated {csv_path} with new image names.")
+                print(f"Updated {csv_path} with new image names and removed missing entries.")
 
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to update CSV file: {e}")
                 return
-
+        else:
+            QMessageBox.warning(self, "Error", f"CSV file not found")
+            return
         QMessageBox.information(self, "Success", "Image names and CSV file have been successfully updated!")
         self.refresh_images()
 
