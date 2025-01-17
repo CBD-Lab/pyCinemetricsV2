@@ -23,7 +23,6 @@ from algorithms.img2Colors import ColorAnalysis
 from algorithms.similarity import Similarity
 from algorithms.faceRecognize import *
 from ui.concatFrameWindow import ConcatFrameWindow
-from ui.csvViewerDialog import CsvViewerDialog
 from ui.multiCsvViewerDialog import MultiCsvViewerDialog
 from ui.progressBar import pyqtbar
 from ui.imageDialog import ImageDialog
@@ -195,25 +194,34 @@ class Control(QDockWidget):
 
     def toggle_buttons(self, enable):
         """启用或禁用所有按钮"""
+
+        # 第零行
         self.shotcut.setEnabled(enable)
-        self.shotlenimgplot.setEnabled(enable)
-
-        self.frameconcat.setEnabled(enable)
-
-        self.subtitle.setEnabled(enable)
-        self.credits.setEnabled(enable)
-
-        self.objects.setEnabled(enable)
-
-        self.shotscale.setEnabled(enable)
-
-        self.colors.setEnabled(enable)
-
         self.show_csv.setEnabled(enable)
 
-        self.shot_similarity.setEnabled(enable)
+        # 第一行
+        self.frameconcat.setEnabled(enable)
 
+        # 第二行
+        self.subtitle.setEnabled(enable)
+        self.credits.setEnabled(enable)
+        self.translate_button.setEnabled(enable)
+        self.intertitle.setEnabled(enable)
+
+        # 第三行
+        self.objects.setEnabled(enable)
         self.facerecognize.setEnabled(enable)
+
+        # 第四行
+        self.shotscale.setEnabled(enable)
+
+        # 第五行
+        self.colors.setEnabled(enable)
+
+        # 第六行
+        self.shot_similarity.setEnabled(enable)
+        self.shotlenimgplot.setEnabled(enable)
+
     
     def shotcut_toggle_buttons(self, enable, img_name:str="shotlength.png"):
         """启用或禁用所有按钮"""
@@ -299,7 +307,7 @@ class Control(QDockWidget):
             self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
         else:
             concatframe_window = ConcatFrameWindow(self.frame_save, int(st), int(ed), self)
-            
+            concatframe_window.finished.connect(lambda: self.toggle_buttons(True))
             concatframe_window.exec_()
 
     # shot_len图颜色更改

@@ -97,13 +97,6 @@ class MultiCsvViewerDialog(QDialog):
 
             if reply == QMessageBox.No:
                 return
-        elif not os.path.exists(output_csv_path):
-            # File already exists, show a confirmation dialog
-            reply = QMessageBox.question(self, "Requestion", 
-                                        f"Do you want to save the merged CSV file?",
-                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply == QMessageBox.No:
-                return
 
         # Create a new workbook
         wb = Workbook()

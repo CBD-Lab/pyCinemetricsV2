@@ -96,13 +96,9 @@ class Timeline(QDockWidget):
         analysis = ColorAnalysis(self.currentImg, imgpath, self.parent.colorsC)  # 创建颜色分析对象
         analysis.analysis1img(imgpath, self.parent.colorsC)  # 对该帧进行颜色分析
         colors_pie_ImgPath = '/'.join(imgpath.split("/")[:2]) + '/colortmp.png'  # 分析结果的保存路径
-        # piximg = QPixmap(path)  # 加载分析结果图片
-        # piximg = piximg.scaled(300, 250)  # 调整图片大小
 
         # 更新控制面板上的分析图片
         self.parent.analyze.add_tab_with_image("frame" + item.text(), colors_pie_ImgPath)
-        # self.parent.control.AnalyzeImgPath = path
-        # self.parent.analyze.labelAnalyze.setPixmap(piximg)
     
     # 单机右键菜单
     def show_right_click_menu(self, pos):
@@ -148,7 +144,9 @@ class Timeline(QDockWidget):
                     self.paths.remove(path) # 删除path中的路径
                     # 找到相应目录，并且删除图片
                     if os.path.exists(path):  # 确保文件存在
-                        os.remove(path)  # 删除文件                       
+                        os.remove(path)  # 删除文件
+                    # 同步info信息
+                    self.parent.shot_changed.emit("delete")            
                     break  # 找到并删除后退出循环
 
     def menu_add_action(self, mode = "key"):
@@ -250,6 +248,7 @@ class Timeline(QDockWidget):
         self.sort_listWidget() # 添加之后重新排序
         # 添加后应该保存该帧图像
         self.save_frame(frame_num)
+        self.parent.shot_changed.emit("add")   
 
     def save_frame(self, frame_num: str):
         img_save_path = os.path.join(self.parent.frame_save, f"frame{frame_num}.png")

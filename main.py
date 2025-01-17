@@ -22,6 +22,7 @@ class MainWindow(QMainWindow):
     # 定义信号
     filename_changed = Signal(str)  # 文件名更改信号，传递字符串参数
     shot_finished = Signal()        # 表示视频分析完成的信号
+    shot_changed = Signal(str)         # 表示在timeline中有添加/删除操作，需要更新info
     video_play_changed = Signal(int)  # 视频播放状态改变信号，传递整数参数
 
     def __init__(self):
@@ -140,7 +141,6 @@ class MainWindow(QMainWindow):
             self.filename = filename
             cap = cv2.VideoCapture(self.filename)
             self.frameCnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
 
 
 def main():

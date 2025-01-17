@@ -14,6 +14,7 @@ class Info(QDockWidget):
         self.parent = parent
         self.init_ui()
         self.parent.filename_changed.connect(self.on_filename_changed)
+        self.parent.shot_changed.connect(self.on_shot_changed)
         self.video_info_loaded.connect(self.update_table)
 
     def init_ui(self):
@@ -22,6 +23,13 @@ class Info(QDockWidget):
         self.table.setHorizontalHeaderLabels(['Property', 'Value'])
         self.setWidget(self.table)
 
+    def on_shot_changed(self, action):
+        shot_cnt = int(self.table.item(6, 1).text())
+        if action == "add":
+            self.table.setItem(6, 1, QTableWidgetItem(str(shot_cnt + 1)))
+        elif action == "delete":
+            self.table.setItem(6, 1, QTableWidgetItem(str(shot_cnt - 1)))
+        
     def on_filename_changed(self, filename):
         self.table.setRowCount(0)
         self.parent.threadpool.submit(self.load_video_info, filename)

@@ -25,7 +25,7 @@ class SubtitleProcessorWhisper(QThread):
 
     def run(self):
         # 从视频中提取音频文件并分段
-        self.signal.emit(50, 0, 1, "subtitle")
+        self.signal.emit(0, 0, 0, "Extracting audio...")
         audio_path = os.path.join(self.save_path, "subtitle.mp3")
         self.extract_audio(self.v_path, audio_path)
 
@@ -44,6 +44,10 @@ class SubtitleProcessorWhisper(QThread):
             model = WhisperModel(r"models/faster-whisper-base")  # Load the small model of faster-whisper
 
             for i in range(num_segments):
+
+                if self.is_stop:
+                    self.finished.emit(True)
+                    return
                 start_time = i * segment_duration
                 end_time = min((i + 1) * segment_duration, duration)
                 audio_segment = audio[start_time:end_time]
@@ -101,7 +105,7 @@ class SubtitleProcessorWhisper(QThread):
     def subtitle2Srt(self, subtitleList, savePath):
         # Save subtitles to SRT format
         srt_File = os.path.join(savePath, "subtitle.srt")
-        with open(srt_File, "w", encoding="utf-8") as f:  # 强制使用 utf-8 编码
+        with open(srt_File, "w") as f:  # 强制使用 utf-8 编码
             for idx, item in enumerate(subtitleList):
                 start_time = self.format_time(item[0])
                 end_time = self.format_time(item[1])
@@ -112,7 +116,7 @@ class SubtitleProcessorWhisper(QThread):
     def subtitle2Csv(self, subtitleList, savePath):
         # Save subtitles to CSV format
         csv_path = os.path.join(savePath, "subtitle.csv")
-        with open(csv_path, "w+", newline="", encoding="utf-8") as csv_File:  # 强制使用 utf-8 编码
+        with open(csv_path, "w+", newline="") as csv_File:  # 强制使用 utf-8 编码
             writer = csv.writer(csv_File)
             writer.writerow(["start_seconds", "end_seconds", "Subtitles"])
             for item in subtitleList:

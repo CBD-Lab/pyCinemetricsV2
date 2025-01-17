@@ -27,7 +27,6 @@ class ConcatFrameWindow(QDialog):
 
     def resize_and_pad(self, image_path, target_width, target_height):
         try:
-            print(image_path)
             image = Image.open(image_path)
             # 获取原始图片尺寸
             width, height = image.size
@@ -71,14 +70,6 @@ class ConcatFrameWindow(QDialog):
                 if frame_pattern.match(img) and self.st <= int(frame_pattern.match(img).group(1)) <= self.ed
             ]
 
-            # images = [self.resize_and_pad(image) for image in images]
-            # images = [
-            #     self.resize_and_pad(Image.open(os.path.join(self.folder_path, img)), 48 * 3, 27 * 3, padding_color=(0, 0, 0)) for img in image_files
-            #     if frame_pattern.match(img) and self.st <= int(frame_pattern.match(img).group(1)) <= self.ed
-            # ]
-            print(f"images_len:{len(images)}")
-
-            
             # 设置每行的图片数量
             images_per_row = self.parent.frameConcatValue
             
