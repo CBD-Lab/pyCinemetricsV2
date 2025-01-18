@@ -69,7 +69,9 @@ class Control(QDockWidget):
 
         self.shot_similarity = self.create_function_button("Pace", self.frame_similarity)
 
-        self.facerecognize = self.create_function_button("Face", self.open_facerecognize_page)
+        self.facerecognize = QPushButton("Face")
+        self.facerecognize.clicked.connect(self.open_facerecognize_page)
+        self.facerecognize.setMaximumWidth(80)
 
         # 输入框
         # frameconcat 输入框
@@ -210,7 +212,6 @@ class Control(QDockWidget):
 
         # 第三行
         self.objects.setEnabled(enable)
-        self.facerecognize.setEnabled(enable)
 
         # 第四行
         self.shotscale.setEnabled(enable)
@@ -502,7 +503,7 @@ class Control(QDockWidget):
         if os.path.exists(input_images_dir):
             if not os.path.exists(image_folder):
                 os.makedirs(image_folder)
-            self.facerecognize_window = MappingApp(image_folder,input_images_dir)
+            self.facerecognize_window = MappingApp(image_folder,input_images_dir,self.parent)
             self.facerecognize_window.setModal(False)
             self.facerecognize_window.show()
         else:
@@ -511,6 +512,7 @@ class Control(QDockWidget):
 
         # 在子页面关闭时释放标志
         self.facerecognize_window.finished.connect(self.on_child_window_closed)
+        #self.facerecognize_window.Crewsignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
     
     def on_child_window_closed(self):
         """子页面关闭时重置标志"""
