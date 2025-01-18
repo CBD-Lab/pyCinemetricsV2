@@ -9,8 +9,6 @@ import csv
 from algorithms.wordCloud2Frame import WordCloud2Frame
 from ui.progressBar import *
 from moviepy import VideoFileClip
-
-
 class SubtitleProcessorWhisper(QThread):
     signal = Signal(int, int, int, str)
     is_stop = 0
@@ -41,7 +39,7 @@ class SubtitleProcessorWhisper(QThread):
             current_offset = 0  # 当前时间偏移量
 
             # Use faster-whisper for transcription
-            model = WhisperModel(r"models/faster-whisper-base")  # Load the small model of faster-whisper
+            model = WhisperModel(r"models/faster-whisper-base",device="cpu",compute_type="int8")  # Load the small model of faster-whisper
 
             for i in range(num_segments):
                 start_time = i * segment_duration
@@ -55,7 +53,7 @@ class SubtitleProcessorWhisper(QThread):
                 try:
                     # Start transcription
                     start_time = time.time()  # Start the timer
-                    segments, _ = model.transcribe(segment_path)  # Get transcriptions
+                    segments, _ = model.transcribe(segment_path,log_progress=True)  # Get transcriptions
 
                     for segment in segments:
                         adjusted_start = round(segment.start + current_offset / 1000, 2)
@@ -68,19 +66,22 @@ class SubtitleProcessorWhisper(QThread):
                     print(f"Time taken for segment {i + 1}: {end_time - start_time} seconds")
 
                 finally:
-                    # 删除临时文件，确保无论发生什么情况都清理文件
+                    # 删除临时文件
                     if os.path.exists(segment_path):
                         os.remove(segment_path)
 
                 # 更新偏移量
                 current_offset += segment_duration
+
             del model
+
+            # 发送字幕给主线程
+            self.subtitlesignal.emit(subtitleStr)
+
             # 将转录结果保存到 CSV 和 SRT 文件中
             self.subtitle2Srt(subtitleList, self.save_path)
             self.subtitle2Csv(subtitleList, self.save_path)
 
-            # 发送字幕给主线程
-            self.subtitlesignal.emit(subtitleStr)
             # 完成处理
             self.signal.emit(101, 101, 101, "CrewDetect")
             self.finished.emit(True)
