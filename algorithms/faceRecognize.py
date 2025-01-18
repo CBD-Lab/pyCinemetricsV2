@@ -51,7 +51,7 @@ class FaceDetection(QThread):
         
     # 初始化模型
     def initialize_model(self):
-        app = FaceAnalysis(providers=['CPUExecutionProvider'])  # 使用 CPU
+        app = FaceAnalysis(root = "../models", providers=['CPUExecutionProvider'])  # 使用 CPU
         app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id = -1 强制使用 CPU
         return app
 
@@ -454,7 +454,7 @@ class MappingApp(QDialog):
         top_layout.addWidget(open_dir_button)
 
         #展示字幕
-        show_subtitle_button = QPushButton("Show Subtitle")
+        show_subtitle_button = QPushButton("Show MetaData/Credits")
         show_subtitle_button.setFixedWidth(150)
         show_subtitle_button.clicked.connect(self.show_subtitle)
         top_layout.addWidget(show_subtitle_button)
