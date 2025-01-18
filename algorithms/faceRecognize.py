@@ -455,7 +455,7 @@ class MappingApp(QDialog):
 
         #展示字幕
         show_subtitle_button = QPushButton("Show MetaData/Credits")
-        show_subtitle_button.setFixedWidth(150)
+        show_subtitle_button.setFixedWidth(200)
         show_subtitle_button.clicked.connect(self.show_subtitle)
         top_layout.addWidget(show_subtitle_button)
 
