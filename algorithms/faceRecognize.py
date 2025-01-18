@@ -567,8 +567,16 @@ class MappingApp(QDialog):
         """运行人脸识别"""
         # 获取下拉框的选中项
         selected_option = self.combo_box.currentText()
-        print(114514,selected_option)
         image_dir = os.path.dirname(self.input_images_dir) + "//" +selected_option
+
+        # 检测 image_dir 是否存在
+        if not os.path.exists(image_dir):
+            # 如果目录不存在，给出错误提示
+            print(f"Error: The directory '{image_dir}' does not exist.")
+            QMessageBox.warning(self, "Refresh Failed", f"Error: The directory '{image_dir}' does not exist.")
+            # 你可以在这里做其他处理，如弹出提示框等
+            return
+
         facedetection = FaceDetection(image_dir, self.image_folder)
         bar = pyqtbar(facedetection)
 
