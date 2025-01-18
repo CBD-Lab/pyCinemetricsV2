@@ -569,6 +569,10 @@ class MappingApp(QDialog):
         selected_option = self.combo_box.currentText()
         image_dir = os.path.dirname(self.input_images_dir) + "//" +selected_option
 
+        # 禁用按钮，防止再次点击
+        button = self.sender()
+        button.setEnabled(False)
+
         # 检测 image_dir 是否存在
         if not os.path.exists(image_dir):
             # 如果目录不存在，给出错误提示
@@ -582,6 +586,9 @@ class MappingApp(QDialog):
 
         # 连接识别完成的信号，刷新图片显示
         facedetection.finished.connect(self.refresh_images)
+        facedetection.finished.connect(self.generate_new_csv)
+        # 识别完成后重新启用按钮
+        facedetection.finished.connect(lambda: button.setEnabled(True))
 
     def refresh_images(self, success=True):
         """刷新图片显示。"""
@@ -703,7 +710,10 @@ class MappingApp(QDialog):
         else:
             QMessageBox.warning(self, "Error", "The folder path does not exist!")
     
-    def generate_new_csv(self):
+    def generate_new_csv(self, success: bool = True):
+        if not success:
+            print("任务失败，不执行生成新 CSV 的操作。")
+            return  # 如果任务失败，则不执行 CSV 生成操作
         """根据原始 CSV 文件生成新的 CSV 文件"""
         # 原始 CSV 文件路径
         csv_path = os.path.join(self.image_folder, "face_cluster_statistics.csv")
