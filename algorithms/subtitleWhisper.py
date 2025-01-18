@@ -25,7 +25,7 @@ class SubtitleProcessorWhisper(QThread):
 
     def run(self):
         # 从视频中提取音频文件并分段
-        self.signal.emit(0, 0, 0, "Extracting audio...")
+        self.signal.emit(50, 0, 1, "CrewDetect")
         audio_path = os.path.join(self.save_path, "subtitle.mp3")
         self.extract_audio(self.v_path, audio_path)
 
@@ -33,7 +33,7 @@ class SubtitleProcessorWhisper(QThread):
             # 分段处理音频
             audio = AudioSegment.from_file(audio_path)
             duration = len(audio)  # 总时长（毫秒）
-            num_segments = 4  # 分成四段
+            num_segments = 4 # 分成四段
             segment_duration = duration // num_segments
 
             subtitleList = []
@@ -44,10 +44,6 @@ class SubtitleProcessorWhisper(QThread):
             model = WhisperModel(r"models/faster-whisper-base")  # Load the small model of faster-whisper
 
             for i in range(num_segments):
-
-                if self.is_stop:
-                    self.finished.emit(True)
-                    return
                 start_time = i * segment_duration
                 end_time = min((i + 1) * segment_duration, duration)
                 audio_segment = audio[start_time:end_time]
@@ -78,7 +74,7 @@ class SubtitleProcessorWhisper(QThread):
 
                 # 更新偏移量
                 current_offset += segment_duration
-
+            del model
             # 将转录结果保存到 CSV 和 SRT 文件中
             self.subtitle2Srt(subtitleList, self.save_path)
             self.subtitle2Csv(subtitleList, self.save_path)
@@ -86,12 +82,12 @@ class SubtitleProcessorWhisper(QThread):
             # 发送字幕给主线程
             self.subtitlesignal.emit(subtitleStr)
             # 完成处理
-            self.signal.emit(101, 101, 101, "subtitle")
+            self.signal.emit(101, 101, 101, "CrewDetect")
             self.finished.emit(True)
         except Exception as e:
             print(f"Error during processing: {e}")
             # 完成处理
-            self.signal.emit(101, 101, 101, "subtitle")
+            self.signal.emit(101, 101, 101, "CrewDetect")
             self.finished.emit(True)
 
     def extract_audio(self, v_path, audio_path):
@@ -103,10 +99,19 @@ class SubtitleProcessorWhisper(QThread):
             video.close()  # 确保释放资源
 
     def subtitle2Srt(self, subtitleList, savePath):
+        # 去除重复字幕
+        merged_subtitles = []
+        for item in subtitleList:
+            if merged_subtitles and merged_subtitles[-1][2] == item[2]:
+                # 合并时间段
+                merged_subtitles[-1][1] = item[1]
+            else:
+                merged_subtitles.append(item)
+
         # Save subtitles to SRT format
         srt_File = os.path.join(savePath, "subtitle.srt")
-        with open(srt_File, "w") as f:  # 强制使用 utf-8 编码
-            for idx, item in enumerate(subtitleList):
+        with open(srt_File, "w", encoding="utf-8") as f:  # 强制使用 utf-8 编码
+            for idx, item in enumerate(merged_subtitles):
                 start_time = self.format_time(item[0])
                 end_time = self.format_time(item[1])
                 f.write(f"{idx + 1}\n")
@@ -114,12 +119,21 @@ class SubtitleProcessorWhisper(QThread):
                 f.write(f"{item[2]}\n\n")
 
     def subtitle2Csv(self, subtitleList, savePath):
+        # 去除重复字幕
+        merged_subtitles = []
+        for item in subtitleList:
+            if merged_subtitles and merged_subtitles[-1][2] == item[2]:
+                # 合并时间段
+                merged_subtitles[-1][1] = item[1]
+            else:
+                merged_subtitles.append(item)
+
         # Save subtitles to CSV format
         csv_path = os.path.join(savePath, "subtitle.csv")
-        with open(csv_path, "w+", newline="") as csv_File:  # 强制使用 utf-8 编码
+        with open(csv_path, "w+", newline="", encoding="utf-8") as csv_File:  # 强制使用 utf-8 编码
             writer = csv.writer(csv_File)
             writer.writerow(["start_seconds", "end_seconds", "Subtitles"])
-            for item in subtitleList:
+            for item in merged_subtitles:
                 writer.writerow([item[0], item[1], item[2]])
 
     def format_time(self, seconds):
