@@ -2,13 +2,16 @@ import os
 import shutil
 import subprocess
 import cv2
+import csv
 import math
 import numpy as np
+import chardet
+import pandas as pd
 from insightface.app import FaceAnalysis#注意导入的顺序否则可能会报错
 from sklearn.cluster import DBSCAN
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
-    QPushButton, QLabel, QScrollArea, QLineEdit, QMessageBox, QFileDialog, QInputDialog, QDialog, QGridLayout
+    QPushButton, QLabel, QScrollArea, QLineEdit, QMessageBox, QFileDialog, QInputDialog, QDialog, QGridLayout, QComboBox
 )
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QTimer
@@ -31,9 +34,9 @@ class FaceDetection(QThread):
         # 提取特征
         features, face_images, original_images, face_poses, eye_statuses = self.extract_features(app, image_paths)
         if len(features) == 0:
-            print("No faces detected!")
+            print("No faces detected!",image_paths)
+            self.finished.emit(False)
             return
-        
         # 聚类
         labels = self.cluster_faces(features)
         
@@ -42,6 +45,8 @@ class FaceDetection(QThread):
         if code == 404:
             self.finished.emit(False)
         else:
+            self.finished.emit(True)
+            print(len(features))
             print(f"Clustering and selection complete! Results saved in {self.output_dir}")
         
     # 初始化模型
@@ -153,7 +158,6 @@ class FaceDetection(QThread):
             percent = round(float(task_id / total_number) * 100)
             self.signal.emit(percent, task_id, total_number, "faceDetect")  # 发送实时任务进度和总任务进度
         self.signal.emit(101, 101, 101, "faceDetect")  # 完成后发送信号
-        self.finished.emit(True)
         return np.array(features), face_images, original_images, face_poses, eye_statuses
 
     # 聚类人脸
@@ -170,7 +174,7 @@ class FaceDetection(QThread):
 
         if not unique_labels:
             print("No valid clusters found. Exiting save_final_faces.")
-            return  # 如果没有有效的聚类，直接退出
+            return 404 # 如果没有有效的聚类，直接退出
 
         csv_data = []
         # 计算每个聚类的人脸数量
@@ -257,7 +261,6 @@ class FaceDetection(QThread):
 
         # 保存 CSV 文件
         csv_output_path = os.path.join(output_dir, "face_cluster_statistics.csv")
-        import pandas as pd
         try:
             df = pd.DataFrame(csv_data, columns=["Name", "Count", "ShotNumber", "Frames"])
             df.to_csv(csv_output_path, index=False)
@@ -407,12 +410,13 @@ class ImageDialog(QDialog):
 
 
 class MappingApp(QDialog):
-    def __init__(self, image_folder, input_images_dir):
+    def __init__(self, image_folder, input_images_dir, parent):
         super().__init__()
         self.image_folder = image_folder
         self.input_images_dir = input_images_dir
         self.imageshows = {}  # 存储文件夹的原始名称和对应的编辑框
         self.init_ui()
+        self.parent = parent
 
     def init_ui(self):
         self.setWindowTitle("Editable Folder Mapping with Save and Merge")
@@ -429,8 +433,19 @@ class MappingApp(QDialog):
         # 添加 "Run Recognition" 按钮
         run_recognition_button = QPushButton("Face Recognition")
         run_recognition_button.setFixedWidth(150)
+        
+        # 创建下拉框并设置内容
+        self.combo_box = QComboBox()
+        self.combo_box.addItem("frame")  # 添加选项1
+        self.combo_box.addItem("ImagetoText")  # 添加选项2
+        
+        # 按钮点击事件处理
         run_recognition_button.clicked.connect(self.run_recognition)
+        
+        # 将按钮和下拉框添加到布局
         top_layout.addWidget(run_recognition_button)
+        top_layout.addWidget(self.combo_box)
+
 
         # 添加 "打开文件夹目录" 按钮
         open_dir_button = QPushButton("Open Folder")
@@ -438,11 +453,17 @@ class MappingApp(QDialog):
         open_dir_button.clicked.connect(self.open_directory)
         top_layout.addWidget(open_dir_button)
 
+        #展示字幕
+        show_subtitle_button = QPushButton("Show Subtitle")
+        show_subtitle_button.setFixedWidth(150)
+        show_subtitle_button.clicked.connect(self.show_subtitle)
+        top_layout.addWidget(show_subtitle_button)
+
         # 添加 "Generate New CSV" 按钮
-        generate_csv_button = QPushButton("Update CSV")
-        generate_csv_button.setFixedWidth(150)
-        generate_csv_button.clicked.connect(self.generate_new_csv)
-        top_layout.addWidget(generate_csv_button)
+        # generate_csv_button = QPushButton("Update CSV")
+        # generate_csv_button.setFixedWidth(150)
+        # generate_csv_button.clicked.connect(self.generate_new_csv)
+        # top_layout.addWidget(generate_csv_button)
 
         # 将顶部布局添加到主布局
         main_layout.addLayout(top_layout)
@@ -544,11 +565,15 @@ class MappingApp(QDialog):
 
     def run_recognition(self):
         """运行人脸识别"""
-        facedetection = FaceDetection(self.input_images_dir, self.image_folder)
+        # 获取下拉框的选中项
+        selected_option = self.combo_box.currentText()
+        print(114514,selected_option)
+        image_dir = os.path.dirname(self.input_images_dir) + "//" +selected_option
+        facedetection = FaceDetection(image_dir, self.image_folder)
         bar = pyqtbar(facedetection)
 
         # 连接识别完成的信号，刷新图片显示
-        facedetection.finished.connect(lambda: self.refresh_images(True))
+        facedetection.finished.connect(self.refresh_images)
 
     def refresh_images(self, success=True):
         """刷新图片显示。"""
@@ -560,7 +585,7 @@ class MappingApp(QDialog):
             self.load_images()  # 重新加载图片
         else:
             print("Detection failed. No images to refresh.")
-            QMessageBox.warning(self, "Refresh Failed", "The detection process failed or there are no images to refresh.")
+            QMessageBox.warning(self, "Refresh Failed", "The detection process failed or there are no images to refresh.Please change the target folder for detection to 'ImagetoText' or close the CSV file.")
 
     def clear_red_border(self, line_edit):
         """清除编辑框的红色边框"""
@@ -596,7 +621,6 @@ class MappingApp(QDialog):
         csv_path = os.path.join(self.image_folder, "face_cluster_statistics.csv")
         if os.path.exists(csv_path):
             try:
-                import pandas as pd
                 df = pd.read_csv(csv_path)
 
                 # 定义允许的图片后缀
@@ -633,6 +657,7 @@ class MappingApp(QDialog):
                 # 保存更新后的 CSV
                 df.to_csv(csv_path, index=False)
                 print(f"Updated {csv_path} with new image names and removed missing entries.")
+                self.generate_new_csv()
 
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to update CSV file: {e}")
@@ -672,8 +697,6 @@ class MappingApp(QDialog):
     
     def generate_new_csv(self):
         """根据原始 CSV 文件生成新的 CSV 文件"""
-        import pandas as pd
-
         # 原始 CSV 文件路径
         csv_path = os.path.join(self.image_folder, "face_cluster_statistics.csv")
         if not os.path.exists(csv_path):
@@ -721,3 +744,38 @@ class MappingApp(QDialog):
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to generate new CSV: {e}")
+
+    def show_subtitle(self):
+        # 构造matedata.csv的完整路径
+        csv_file_path = os.path.join(os.path.dirname(self.image_folder), "matedata.csv")
+
+        # 检查文件是否存在
+        if os.path.exists(csv_file_path):
+            subtitles = []  # 用于存储第二列的每行内容
+
+            # 自动检测文件编码
+            with open(csv_file_path, 'rb') as file:
+                raw_data = file.read()
+                result = chardet.detect(raw_data)
+                encoding = result['encoding']
+
+            try:
+                # 打开并读取 CSV 文件，使用检测到的编码
+                with open(csv_file_path, mode='r', encoding=encoding) as file:
+                    csv_reader = csv.reader(file)
+                    for row in csv_reader:
+                        if len(row) > 1:  # 确保第二列存在
+                            subtitles.append(row[1])  # 提取第二列的内容
+
+                # 将提取出来的内容拼接为一个带换行符的字符串
+                subtitle_text = "\n".join(subtitles)
+
+                # 发送字幕内容
+                self.parent.subtitle.textSubtitle.setPlainText(subtitle_text)
+            
+            except UnicodeDecodeError:
+                print(f"Error decoding the file with {encoding}.")
+                # 处理编码错误的情况
+        else:
+            QMessageBox.warning(self, "Error", f"Please generate the CSV first.")
+            print(f"File '{csv_file_path}' does not exist.")
