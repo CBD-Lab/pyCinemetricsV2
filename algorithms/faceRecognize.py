@@ -570,15 +570,18 @@ class MappingApp(QDialog):
         image_dir = os.path.dirname(self.input_images_dir) + "//" +selected_option
 
         # 禁用按钮，防止再次点击
-        button = self.sender()
-        button.setEnabled(False)
+        button = self.sender()  # 获取触发信号的按钮
+        if button is not None:
+            button.setEnabled(False)
 
         # 检测 image_dir 是否存在
         if not os.path.exists(image_dir):
             # 如果目录不存在，给出错误提示
             print(f"Error: The directory '{image_dir}' does not exist.")
             QMessageBox.warning(self, "Refresh Failed", f"Error: The directory '{image_dir}' does not exist.")
-            # 你可以在这里做其他处理，如弹出提示框等
+            # 重新启用按钮
+            if button is not None:
+                button.setEnabled(True)
             return
 
         facedetection = FaceDetection(image_dir, self.image_folder)
@@ -588,7 +591,8 @@ class MappingApp(QDialog):
         facedetection.finished.connect(self.refresh_images)
         facedetection.finished.connect(self.generate_new_csv)
         # 识别完成后重新启用按钮
-        facedetection.finished.connect(lambda: button.setEnabled(True))
+        if button is not None:
+            facedetection.finished.connect(lambda: button.setEnabled(True))
 
     def refresh_images(self, success=True):
         """刷新图片显示。"""
