@@ -501,6 +501,9 @@ class MappingApp(QDialog):
         # 创建文字标签 "fine_grained"
         fine_grained_label = QLabel("fine_grained")
         fine_grained_label.setFixedWidth(80)  # 设置宽度，调整显示效果
+        # 设置鼠标悬停时的提示
+        fine_grained_label.setAlignment(Qt.AlignCenter)
+        fine_grained_label.setToolTip("The larger the value, the stricter the saving conditions, and the fewer the categories saved.")
 
         # 创建下拉框并设置内容
         self.combo_box = QComboBox()
