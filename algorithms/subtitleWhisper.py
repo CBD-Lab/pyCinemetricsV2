@@ -9,6 +9,8 @@ import csv
 from algorithms.wordCloud2Frame import WordCloud2Frame
 from ui.progressBar import *
 from moviepy import VideoFileClip
+
+
 class SubtitleProcessorWhisper(QThread):
     signal = Signal(int, int, int, str)
     is_stop = 0
@@ -23,23 +25,31 @@ class SubtitleProcessorWhisper(QThread):
 
     def run(self):
         # 从视频中提取音频文件并分段
-        self.signal.emit(50, 0, 1, "CrewDetect")
+        self.signal.emit(10, 0, 1, "Extracting mp3")
         audio_path = os.path.join(self.save_path, "subtitle.mp3")
         self.extract_audio(self.v_path, audio_path)
 
         try:
             # 分段处理音频
+
             audio = AudioSegment.from_file(audio_path)
             duration = len(audio)  # 总时长（毫秒）
-            num_segments = 4 # 分成四段
-            segment_duration = duration // num_segments
+            segment_duration = 10 * 60 * 1000  # 每段时长：10分钟（600,000毫秒）
+            num_segments = (duration + segment_duration - 1) // segment_duration  # 向上取整，计算需要的段数
 
             subtitleList = []
             subtitleStr = ""
+            previous_subtitle = ""  # Keep track of the last subtitle
             current_offset = 0  # 当前时间偏移量
 
+            model_load_start_time = time.time()
             # Use faster-whisper for transcription
-            model = WhisperModel(r"models/faster-whisper-base",device="cpu",compute_type="int8")  # Load the small model of faster-whisper
+            model = WhisperModel(r"models/faster-whisper-small", device="cpu",
+                                 compute_type="int8")  # Load the small model of faster-whisper
+            model_load_end_time = time.time()
+            model_load_total_time = model_load_end_time - model_load_start_time
+            print(f"Model loaded in {model_load_total_time} seconds")
+            total_transcribe_time = 0
 
             for i in range(num_segments):
                 start_time = i * segment_duration
@@ -53,18 +63,24 @@ class SubtitleProcessorWhisper(QThread):
                 try:
                     # Start transcription
                     start_time = time.time()  # Start the timer
-                    segments, _ = model.transcribe(segment_path,log_progress=True)  # Get transcriptions
+                    segments, info = model.transcribe(segment_path, log_progress=True,multilingual=True)  # Get transcriptions
+
+                    self.signal.emit(10 + i * 90 // num_segments, 0, 1, f"Transcribing Segment {i + 1}")
 
                     for segment in segments:
                         adjusted_start = round(segment.start + current_offset / 1000, 2)
                         adjusted_end = round(segment.end + current_offset / 1000, 2)
                         subtitleList.append([adjusted_start, adjusted_end, segment.text])
-                        subtitleStr += segment.text + "\n"
+
+                        # Check for duplicates before adding to subtitleStr
+                        if segment.text != previous_subtitle:
+                            subtitleStr += segment.text + "\n"
+                            previous_subtitle = segment.text
 
                     # End transcription
                     end_time = time.time()  # End the timer
+                    total_transcribe_time += (end_time - start_time)
                     print(f"Time taken for segment {i + 1}: {end_time - start_time} seconds")
-
                 finally:
                     # 删除临时文件
                     if os.path.exists(segment_path):
@@ -72,7 +88,7 @@ class SubtitleProcessorWhisper(QThread):
 
                 # 更新偏移量
                 current_offset += segment_duration
-
+            print(f"Time taken for all {total_transcribe_time} seconds")
             del model
 
             # 发送字幕给主线程
@@ -83,12 +99,12 @@ class SubtitleProcessorWhisper(QThread):
             self.subtitle2Csv(subtitleList, self.save_path)
 
             # 完成处理
-            self.signal.emit(101, 101, 101, "CrewDetect")
+            self.signal.emit(101, 101, 101, "Subtitle")
             self.finished.emit(True)
         except Exception as e:
             print(f"Error during processing: {e}")
             # 完成处理
-            self.signal.emit(101, 101, 101, "CrewDetect")
+            self.signal.emit(101, 101, 101, "Subtitle")
             self.finished.emit(True)
 
     def extract_audio(self, v_path, audio_path):
