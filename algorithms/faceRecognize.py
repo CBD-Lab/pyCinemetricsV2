@@ -9,9 +9,10 @@ import chardet
 import pandas as pd
 from insightface.app import FaceAnalysis#注意导入的顺序否则可能会报错
 from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
-    QPushButton, QLabel, QScrollArea, QLineEdit, QMessageBox, QFileDialog, QInputDialog, QDialog, QGridLayout, QComboBox
+    QPushButton, QLabel, QScrollArea, QLineEdit, QMessageBox, QFileDialog, QInputDialog, QDialog, QGridLayout, QComboBox, QSlider
 )
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QTimer
@@ -22,10 +23,11 @@ class FaceDetection(QThread):
     finished = Signal(bool)        # 任务完成信号
     is_stop = 0                    # 是否中断标志
 
-    def __init__(self, image_dir, output_dir):
+    def __init__(self, image_dir, output_dir, fine_grained):
         super(FaceDetection, self).__init__()
         self.image_dir = image_dir
         self.output_dir = output_dir
+        self.min_threshold = fine_grained
 
     def run(self):
         app = self.initialize_model()
@@ -39,14 +41,13 @@ class FaceDetection(QThread):
             return
         # 聚类
         labels = self.cluster_faces(features)
-        
+
         # 保存最终结果
         code = self.save_final_faces(labels, face_images, original_images, face_poses, eye_statuses, self.output_dir)
         if code == 404:
             self.finished.emit(False)
         else:
             self.finished.emit(True)
-            print(len(features))
             print(f"Clustering and selection complete! Results saved in {self.output_dir}")
         
     # 初始化模型
@@ -161,9 +162,23 @@ class FaceDetection(QThread):
         return np.array(features), face_images, original_images, face_poses, eye_statuses
 
     # 聚类人脸
-    def cluster_faces(self, features, eps=0.6, min_samples=2):
+    def cluster_faces(self, features, eps=0.3, min_samples=2, n_components=50):
+        """
+        使用 PCA 对特征进行降维后进行 DBSCAN 聚类
+        :param features: 提取的特征向量
+        :param eps: DBSCAN 的邻域半径
+        :param min_samples: DBSCAN 的最小样本数
+        :param n_components: PCA 降维后的维度
+        :return: 聚类标签
+        """
+        # 使用 PCA 进行降维
+        pca = PCA(n_components=n_components)
+        features_reduced = pca.fit_transform(features)
+
+        # 使用降维后的特征进行 DBSCAN 聚类
         clustering = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine')
-        labels = clustering.fit_predict(features)
+        labels = clustering.fit_predict(features_reduced)
+
         return labels
 
     # 保存最终结果
@@ -171,7 +186,7 @@ class FaceDetection(QThread):
         unique_labels = set(labels)
         if -1 in unique_labels:
             unique_labels.remove(-1)  # 移除噪声类别
-
+        print("聚类个数",len(unique_labels))
         if not unique_labels:
             print("No valid clusters found. Exiting save_final_faces.")
             return 404 # 如果没有有效的聚类，直接退出
@@ -182,86 +197,135 @@ class FaceDetection(QThread):
         print('label_counts:', label_counts)
 
         # 获取最大值，并计算最小阈值
-        max_count = max(label_counts.values())
-        min_threshold = max_count / 10  # 小于最大值的十分之一
+        # max_count = max(label_counts.values())
+        min_threshold = self.min_threshold  # 小于最大值的十分之一
 
         # 过滤掉数量小于阈值的聚类
         filtered_labels = {label: count for label, count in label_counts.items() if count >= min_threshold}
         print('Filtered label counts:', filtered_labels)
-
-        for label, count in filtered_labels.items():
-            cluster_faces = []  # 保存当前聚类中的所有人脸信息
-            for idx, lbl in enumerate(labels):
-                if lbl == label:
-                    cluster_faces.append({
-                        "image": original_images[idx][0],
-                        "path": original_images[idx][1],
-                        "bbox": face_images[idx],
-                        "brightness": self.calculate_brightness_score(original_images[idx][0], face_images[idx]),
-                        "area": self.calculate_bbox_area(face_images[idx]),
-                        "eyes_open": eye_statuses[idx],
-                        "is_frontal": self.is_frontal_face(face_poses[idx])
-                    })
-
-            # 按优先级排序：睁眼 > 检测框面积 > 亮度 > 正脸
-            cluster_faces.sort(
-                key=lambda x: (
-                    x["eyes_open"],  # 是否睁眼
-                    x["area"],       # 检测框面积
-                    x["brightness"], # 亮度
-                    x["is_frontal"]  # 是否正脸
-                ),
-                reverse=True
-            )
-            # 保存优先级最高的两张图片
-            top_faces = cluster_faces[:2]
-
-            cluster_dir = output_dir
-
-            for i, face in enumerate(top_faces):
-                img_name = f"top_{i+1}_" + os.path.basename(face["path"])
-                output_path = os.path.join(cluster_dir, img_name)
-                x1, y1, x2, y2 = map(int, face["bbox"])
-                img_copy = face["image"].copy()
-                cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(
-                    img_copy,
-                    f"Cluster {label} - Top {i+1}",
-                    (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 255, 0),
-                    1,
-                    cv2.LINE_AA,
-                )
-                # cv2.imwrite(output_path, img_copy)
-                print(f"Saved top {i+1} face for Cluster {label} to {output_path}")
-
-            # 保存圆形照片（优先级最高的图片）
-            top_face = top_faces[0]
-            circular_crop = self.create_circular_crop(top_face["image"], top_face["bbox"])
-            circular_output_path = os.path.join(cluster_dir, f"FaceCluster_{label}.png")
-            cv2.imwrite(circular_output_path, circular_crop)
-
-            print(f"Saved circular cropped image for Cluster {label} to {circular_output_path}")
-
-            # 收集当前聚类的图片名称最后数字
-            image_numbers = [
-                int(os.path.basename(face["path"]).split('_')[-1].split('.')[0])
-                for face in cluster_faces
-            ]
-
-            # 统计人脸数量并保存到 CSV 数据中
-            csv_data.append([
-                f"FaceCluster_{label}",  # Name
-                count,                  # Count
-                int(os.path.basename(cluster_faces[0]["path"]).split('_')[2]) + 1,  # ShotNumber
-                sorted(image_numbers)   # 图片编号集合
-            ])
-
-        # 保存 CSV 文件
-        csv_output_path = os.path.join(output_dir, "face_cluster_statistics.csv")
         try:
+            for label, count in filtered_labels.items():
+                cluster_faces = []  # 保存当前聚类中的所有人脸信息
+                for idx, lbl in enumerate(labels):
+                    if lbl == label:
+                        cluster_faces.append({
+                            "image": original_images[idx][0],
+                            "path": original_images[idx][1],
+                            "bbox": face_images[idx],
+                            "brightness": self.calculate_brightness_score(original_images[idx][0], face_images[idx]),
+                            "area": self.calculate_bbox_area(face_images[idx]),
+                            "eyes_open": eye_statuses[idx],
+                            "is_frontal": self.is_frontal_face(face_poses[idx])
+                        })
+
+                # 按优先级排序：睁眼 > 检测框面积 > 亮度 > 正脸
+                cluster_faces.sort(
+                    key=lambda x: (
+                        x["eyes_open"],  # 是否睁眼
+                        x["area"],       # 检测框面积
+                        x["brightness"], # 亮度
+                        x["is_frontal"]  # 是否正脸
+                    ),
+                    reverse=True
+                )
+                # 保存优先级最高的两张图片
+                top_faces = cluster_faces[:2]
+
+                cluster_dir = output_dir
+
+                for i, face in enumerate(top_faces):
+                    img_name = f"top_{i+1}_" + os.path.basename(face["path"])
+                    output_path = os.path.join(cluster_dir, img_name)
+                    x1, y1, x2, y2 = map(int, face["bbox"])
+                    img_copy = face["image"].copy()
+                    cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(
+                        img_copy,
+                        f"Cluster {label} - Top {i+1}",
+                        (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        1,
+                        cv2.LINE_AA,
+                    )
+                    # cv2.imwrite(output_path, img_copy)
+                    print(f"Saved top {i+1} face for Cluster {label} to {output_path}")
+
+                # 保存圆形照片（优先级最高的图片）
+                top_face = top_faces[0]
+                circular_crop = self.create_circular_crop(top_face["image"], top_face["bbox"])
+                circular_output_path = os.path.join(cluster_dir, f"FaceCluster_{label}.png")
+                cv2.imwrite(circular_output_path, circular_crop)
+
+                print(f"Saved circular cropped image for Cluster {label} to {circular_output_path}")
+
+                last_dir = os.path.basename(os.path.normpath(self.image_dir))
+                try:
+                    if last_dir == "frame":
+                        parent_dir = os.path.dirname(self.image_dir)
+                        video_txt_path = os.path.join(parent_dir, "video.txt")
+                        if not os.path.exists(video_txt_path):
+                            print("video.txt 文件未找到")
+                            return 404
+
+                        # 读取 video.txt 文件并解析区间
+                        intervals = []
+                        with open(video_txt_path, 'r') as f:
+                            for line in f:
+                                parts = line.strip().split()
+                                start_frame, end_frame = map(int, parts)
+                                intervals.append((start_frame, end_frame))
+
+                        # 收集当前聚类的图片帧号
+                        image_numbers = [
+                            int(os.path.basename(face["path"]).replace('frame', '').lstrip('0').split('.')[0])
+                            for face in cluster_faces
+                        ]
+
+                        # 根据帧号为每个图片分配 ShotNumber
+                        shot_numbers = []
+                        for image_number in image_numbers:
+                            shot_number = None
+                            for idx, (start, end) in enumerate(intervals):
+                                if start <= image_number <= end:
+                                    shot_number = idx + 1  # 区间对应的拍摄编号从 1 开始
+                                    break
+                            shot_numbers.append(shot_number if shot_number is not None else 0)
+
+                        # 统计人脸数量并保存到 CSV 数据中
+                        csv_data.append([
+                            f"FaceCluster_{label}",  # Name
+                            count,                  # Count
+                            sorted(shot_numbers),   # ShotNumber
+                            sorted(image_numbers)   # 图片编号集合
+                        ])
+                    elif last_dir == "ImagetoText":
+                        # 收集当前聚类的图片名称最后数字
+                        image_numbers = [
+                            int(os.path.basename(face["path"]).split('_')[-1].split('.')[0])
+                            for face in cluster_faces
+                        ]
+                        # 使用列表推导式生成 shot_numbers
+                        shot_numbers = [
+                            int(os.path.basename(face["path"]).split('_')[2]) + 1
+                            for face in cluster_faces
+                        ]
+                        # 统计人脸数量并保存到 CSV 数据中
+                        csv_data.append([
+                            f"FaceCluster_{label}",  # Name
+                            count,                  # Count
+                            sorted(shot_numbers),  # ShotNumber
+                            sorted(image_numbers)   # 图片编号集合
+                        ])
+                    else:
+                        return 404
+                except:
+                    return 404
+
+
+            # 保存 CSV 文件
+            csv_output_path = os.path.join(output_dir, "face_cluster_statistics.csv")
             df = pd.DataFrame(csv_data, columns=["Name", "Count", "ShotNumber", "Frames"])
             df.to_csv(csv_output_path, index=False)
             print(f"Saved face cluster statistics to {csv_output_path}")
@@ -434,30 +498,49 @@ class MappingApp(QDialog):
         run_recognition_button = QPushButton("Face Recognition")
         run_recognition_button.setFixedWidth(150)
         
+        # 创建文字标签 "fine_grained"
+        fine_grained_label = QLabel("fine_grained")
+        fine_grained_label.setFixedWidth(80)  # 设置宽度，调整显示效果
+
         # 创建下拉框并设置内容
         self.combo_box = QComboBox()
-        self.combo_box.addItem("frame")  # 添加选项1
-        self.combo_box.addItem("ImagetoText")  # 添加选项2
+        self.combo_box.addItem("Shot")  # 添加选项1
+        self.combo_box.addItem("keyFrame")  # 添加选项2
+        self.combo_box.setFixedWidth(150)
         
+        # 创建滑块，设置范围为 2 到 10
+        self.slider = QSlider()
+        self.slider.setOrientation(Qt.Horizontal)  # 设置水平滑动条
+        self.slider.setRange(2, 10)  # 设置滑块的范围
+        self.slider.setValue(5)  # 默认值为 5
+        self.slider.setFixedWidth(300)  # 设置滑块的宽度
+
+        # 创建标签，用于显示滑块当前的值
+        slider_value_label = QLabel("5")  # 初始化为 5
+        slider_value_label.setFixedWidth(20)
+        self.slider.valueChanged.connect(lambda: slider_value_label.setText(str(self.slider.value())))  # 滑块值变化时更新标签
+
         # 按钮点击事件处理
         run_recognition_button.clicked.connect(self.run_recognition)
         
         # 将按钮和下拉框添加到布局
         top_layout.addWidget(run_recognition_button)
         top_layout.addWidget(self.combo_box)
-
+        top_layout.addWidget(fine_grained_label)  # 添加 "fine_grained" 标签
+        top_layout.addWidget(self.slider)
+        top_layout.addWidget(slider_value_label)  # 显示当前滑块值
 
         # 添加 "打开文件夹目录" 按钮
         open_dir_button = QPushButton("Open Folder")
         open_dir_button.setFixedWidth(150)
         open_dir_button.clicked.connect(self.open_directory)
-        top_layout.addWidget(open_dir_button)
+        
 
         #展示字幕
         show_subtitle_button = QPushButton("Show MetaData/Credits")
         show_subtitle_button.setFixedWidth(200)
         show_subtitle_button.clicked.connect(self.show_subtitle)
-        top_layout.addWidget(show_subtitle_button)
+
 
         # 添加 "Generate New CSV" 按钮
         # generate_csv_button = QPushButton("Update CSV")
@@ -494,6 +577,9 @@ class MappingApp(QDialog):
         refresh_button.clicked.connect(lambda: self.refresh_images(True))
         bottom_layout.addWidget(refresh_button)
 
+        bottom_layout.addWidget(open_dir_button)
+        bottom_layout.addWidget(show_subtitle_button)
+
         # 将底部布局添加到主布局
         main_layout.addLayout(bottom_layout)
 
@@ -506,7 +592,8 @@ class MappingApp(QDialog):
             return
         images = [f for f in os.listdir(self.image_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         if not images:
-            self.run_recognition()
+            # self.run_recognition()
+            return
 
         self.clear_grid_layout()  # 清除现有网格布局内容
 
@@ -567,7 +654,15 @@ class MappingApp(QDialog):
         """运行人脸识别"""
         # 获取下拉框的选中项
         selected_option = self.combo_box.currentText()
-        image_dir = os.path.dirname(self.input_images_dir) + "//" +selected_option
+        slider_value = self.slider.value()  # 获取滑块当前的值
+        if selected_option == "Shot":
+            image_dir = os.path.dirname(self.input_images_dir) + "//" + "frame"
+        elif selected_option == "keyFrame":
+            image_dir = os.path.dirname(self.input_images_dir) + "//" + "ImagetoText"
+        else:
+            QMessageBox.warning(self,"Run_recognition Failed")
+            return
+
 
         # 禁用按钮，防止再次点击
         button = self.sender()  # 获取触发信号的按钮
@@ -584,7 +679,7 @@ class MappingApp(QDialog):
                 button.setEnabled(True)
             return
 
-        facedetection = FaceDetection(image_dir, self.image_folder)
+        facedetection = FaceDetection(image_dir, self.image_folder, slider_value)
         bar = pyqtbar(facedetection)
 
         # 连接识别完成的信号，刷新图片显示
@@ -714,17 +809,31 @@ class MappingApp(QDialog):
         else:
             QMessageBox.warning(self, "Error", "The folder path does not exist!")
     
-    def generate_new_csv(self, success: bool = True):
-        if not success:
-            print("任务失败，不执行生成新 CSV 的操作。")
-            return  # 如果任务失败，则不执行 CSV 生成操作
+    def generate_new_csv(self):
         """根据原始 CSV 文件生成新的 CSV 文件"""
+        import pandas as pd
+        import os
+
         # 原始 CSV 文件路径
         csv_path = os.path.join(self.image_folder, "face_cluster_statistics.csv")
         if not os.path.exists(csv_path):
             QMessageBox.warning(self, "Error", "Original CSV file not found.")
             return
+        
+        parent_folder = os.path.dirname(self.input_images_dir)
+        video_txt_path = os.path.join(parent_folder, "video.txt")
+        if not os.path.exists(video_txt_path):
+            print("video.txt 文件未找到")
+            return 
 
+        # 读取 video.txt 文件并解析区间
+        intervals = []
+        with open(video_txt_path, 'r') as f:
+            for idx, line in enumerate(f):
+                parts = line.strip().split()
+                start_frame, end_frame = map(int, parts)
+                intervals.append((start_frame, end_frame, idx + 1))  # idx + 1 作为 ShotNumber
+        
         try:
             # 读取原始 CSV 文件
             df = pd.read_csv(csv_path)
@@ -735,10 +844,16 @@ class MappingApp(QDialog):
             # 遍历原始数据的每一行
             for _, row in df.iterrows():
                 name = row["Name"]
-                shot_number = row["ShotNumber"]
                 frames = eval(row["Frames"])  # 将帧号列表字符串转换为实际列表
 
                 for frame in frames:
+                    # 查找帧所在的区间并赋予相应的 ShotNumber
+                    shot_number = None
+                    for start_frame, end_frame, shot_num in intervals:
+                        if start_frame <= frame <= end_frame:
+                            shot_number = shot_num
+                            break
+
                     # 检查当前帧是否已经在 new_data 中
                     existing_entry = next((entry for entry in new_data if entry["Frames"] == frame), None)
 
@@ -754,7 +869,11 @@ class MappingApp(QDialog):
 
             # 转换为 DataFrame
             new_df = pd.DataFrame([
-                {"Frames": entry["Frames"], "Names": ", ".join(entry["Names"]), "ShotNumber": entry["ShotNumber"]}
+                {
+                    "Frames": entry["Frames"],
+                    "Names": ", ".join(entry["Names"]),
+                    "ShotNumber": entry["ShotNumber"]  
+                }
                 for entry in new_data
             ])
 
@@ -766,6 +885,8 @@ class MappingApp(QDialog):
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to generate new CSV: {e}")
+
+
 
     def show_subtitle(self):
         # 构造matedata.csv的完整路径
