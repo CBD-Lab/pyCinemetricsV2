@@ -9,6 +9,7 @@ import chardet
 import pandas as pd
 from insightface.app import FaceAnalysis#注意导入的顺序否则可能会报错
 from sklearn.cluster import DBSCAN
+from scipy.signal import argrelextrema
 from sklearn.decomposition import PCA
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
@@ -18,23 +19,52 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QTimer
 from ui.progressBar import *
 
+def has_images_in_directory(directory):
+    # 常见图片文件扩展名
+    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff']
+    
+    # 列出目录中的所有文件
+    for filename in os.listdir(directory):
+        # 获取文件的完整路径
+        file_path = os.path.join(directory, filename)
+        
+        # 如果是文件且扩展名符合图片类型
+        if os.path.isfile(file_path) and any(filename.lower().endswith(ext) for ext in image_extensions):
+            return True
+    
+    return False
+
 class FaceDetection(QThread):
     signal = Signal(int, int, int, str)  # 进度更新信号
     finished = Signal(bool)        # 任务完成信号
     is_stop = 0                    # 是否中断标志
 
-    def __init__(self, image_dir, output_dir, fine_grained):
+    def __init__(self, image_dir, output_dir, fine_grained, video):
         super(FaceDetection, self).__init__()
         self.image_dir = image_dir
         self.output_dir = output_dir
         self.min_threshold = fine_grained
+        self.video_path = video
 
     def run(self):
+        last_dir = os.path.basename(os.path.normpath(self.image_dir))
+        if last_dir == "ImagetoText":
+            if os.path.exists(self.image_dir) and has_images_in_directory(self.image_dir):
+                pass
+            else:
+                self.process_video_by_segments(self.video_path,os.path.join(os.path.dirname(self.image_dir),"video.txt"),os.path.join(os.path.dirname(self.image_dir),"ImagetoText"))
+        elif last_dir == "frame":
+            if os.path.exists(self.image_dir) and has_images_in_directory(self.image_dir):
+                pass
+            else:
+                return
         app = self.initialize_model()
         image_paths = [os.path.join(self.image_dir, img) for img in os.listdir(self.image_dir) if img.endswith(('.jpg', '.png'))]
-        
         # 提取特征
         features, face_images, original_images, face_poses, eye_statuses = self.extract_features(app, image_paths)
+        if self.is_stop != 0:
+            self.finished.emit(True)
+            return
         if len(features) == 0:
             print("No faces detected!",image_paths)
             self.finished.emit(False)
@@ -111,6 +141,12 @@ class FaceDetection(QThread):
 
         # 创建圆形掩码
         mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+
+        # 确保圆的大小和位置在图像范围内
+        max_radius = min(center_x, center_y, image.shape[1] - center_x, image.shape[0] - center_y)
+        radius = min(radius, max_radius)
+
+        # 绘制圆形掩码
         cv2.circle(mask, (center_x, center_y), radius, 255, -1)
 
         # 提取圆形区域
@@ -121,14 +157,22 @@ class FaceDetection(QThread):
         circular_image = np.zeros((size, size, 4), dtype=np.uint8)  # 4 通道，支持透明
 
         # 将裁剪区域添加到画布中
-        circular_region = result[center_y - radius:center_y + radius, center_x - radius:center_x + radius]
+        top_left_x = max(0, center_x - radius)
+        top_left_y = max(0, center_y - radius)
+
+        bottom_right_x = min(image.shape[1], center_x + radius)
+        bottom_right_y = min(image.shape[0], center_y + radius)
+
+        # 获取裁剪区域并复制到透明背景图
+        circular_region = result[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
         circular_image[:circular_region.shape[0], :circular_region.shape[1], :3] = circular_region  # RGB 通道
 
         # 设置透明背景
-        mask_region = mask[center_y - radius:center_y + radius, center_x - radius:center_x + radius]
+        mask_region = mask[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
         circular_image[:circular_region.shape[0], :circular_region.shape[1], 3] = mask_region  # Alpha 通道
 
         return circular_image
+
 
     # 提取人脸特征
     def extract_features(self, app, image_paths):
@@ -181,23 +225,127 @@ class FaceDetection(QThread):
 
         return labels
 
+    def smooth(self, x, window_len=13, window='hanning'):
+        """平滑函数"""
+        s = np.r_[2 * x[0] - x[window_len:1:-1],
+                x, 2 * x[-1] - x[-1:-window_len:-1]]
+        if window == 'flat':  # 移动平均
+            w = np.ones(window_len, 'd')
+        else:
+            w = getattr(np, window)(window_len)
+        y = np.convolve(w / w.sum(), s, mode='same')
+        return y[window_len - 1:-window_len + 1]
+
+    def process_video_by_segments(self, video_path, txt_path, output_dir, target_width=640, target_height=360, len_window=100, threshold=0.05, min_distance=100):
+        """根据帧号范围处理视频并保存每段关键帧"""
+        if os.path.exists(output_dir):
+            # 删除目录及其所有内容
+            shutil.rmtree(output_dir)
+        # 创建新的空目录
+        os.makedirs(output_dir)
+        
+        filename = os.path.splitext(os.path.basename(video_path))[0]
+
+        # 加载视频
+        cap = cv2.VideoCapture(video_path)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        print(f"视频总帧数: {frame_count}, 原始分辨率: {original_width}x{original_height}, 目标分辨率: {target_width}x{target_height}")
+
+        # 读取txt文件中的帧号范围
+        try:
+            with open(txt_path, 'r') as f:
+                segments = [list(map(int, line.strip().split())) for line in f if line.strip()]
+        except Exception as e:
+            print(f"读取文件失败: {e}")
+            return
+
+        # 进度条设置
+        file_list = segments
+        total_number = len(file_list)  # 总任务数
+        task_id = 0  # 子任务序号
+
+        for seg_idx, (start_frame, end_frame) in enumerate(segments):
+            if start_frame >= frame_count or end_frame >= frame_count or start_frame > end_frame:
+                print(f"段 {seg_idx} 的帧号范围无效: {start_frame}-{end_frame}")
+                continue
+            
+            print(f"处理第 {seg_idx} 段: 帧号范围 {start_frame}-{end_frame}")
+
+            frame_diffs = []
+            prev_frame = None
+
+            # 提取段内帧差
+            for i in range(start_frame, end_frame + 1):
+                if self.is_stop:
+                    return
+                cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+                ret, frame = cap.read()
+                if not ret:
+                    print(f"读取帧 {i} 失败，跳过")
+                    continue
+
+                # 调整分辨率
+                resized_frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+                curr_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+
+                if prev_frame is not None:
+                    diff = cv2.absdiff(curr_frame, prev_frame)
+                    frame_diffs.append(np.sum(diff) / (target_width * target_height))
+                prev_frame = curr_frame
+
+
+            # 平滑差异并检测局部极值
+            frame_diffs = np.array(frame_diffs)
+            if len(frame_diffs) > 0:
+                smoothed_diffs = self.smooth(frame_diffs, len_window)
+                keyframes = argrelextrema(smoothed_diffs, np.greater)[0]
+
+                # 阈值过滤
+                keyframes = [k for k in keyframes if smoothed_diffs[k] > threshold]
+
+                # 最小间隔过滤
+                filtered_keyframes = []
+                for k in keyframes:
+                    if len(filtered_keyframes) == 0 or k - filtered_keyframes[-1] >= min_distance:
+                        filtered_keyframes.append(k)
+                keyframes = filtered_keyframes
+
+                # 保存段内关键帧
+                for k_idx in keyframes:
+                    frame_idx = start_frame + k_idx
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                    ret, frame = cap.read()
+                    if ret:
+                        resized_frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+                        output_path = os.path.join(output_dir, f"{filename}_segment_{seg_idx}_frame_{frame_idx}.jpg")
+                        cv2.imwrite(output_path, resized_frame)
+            else:
+                print(f"段 {seg_idx} 没有足够的帧计算帧差")
+            task_id += 1
+            percent = round(float(task_id / total_number) * 100)
+            self.signal.emit(percent, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
+        self.signal.emit(99, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
+        cap.release()
+        print(f"所有段处理完成，结果保存在: {output_dir}")
+
     # 保存最终结果
     def save_final_faces(self, labels, face_images, original_images, face_poses, eye_statuses, output_dir):
         unique_labels = set(labels)
         if -1 in unique_labels:
             unique_labels.remove(-1)  # 移除噪声类别
-        print("聚类个数",len(unique_labels))
+        print("聚类个数", len(unique_labels))
         if not unique_labels:
             print("No valid clusters found. Exiting save_final_faces.")
-            return 404 # 如果没有有效的聚类，直接退出
+            return 404  # 如果没有有效的聚类，直接退出
 
         csv_data = []
         # 计算每个聚类的人脸数量
         label_counts = {label: np.sum(labels == label) for label in unique_labels}
         print('label_counts:', label_counts)
 
-        # 获取最大值，并计算最小阈值
-        # max_count = max(label_counts.values())
         min_threshold = self.min_threshold  # 小于最大值的十分之一
 
         # 过滤掉数量小于阈值的聚类
@@ -234,7 +382,7 @@ class FaceDetection(QThread):
                 cluster_dir = output_dir
 
                 for i, face in enumerate(top_faces):
-                    img_name = f"top_{i+1}_" + os.path.basename(face["path"])
+                    img_name = f"top_{i + 1}_" + os.path.basename(face["path"])
                     output_path = os.path.join(cluster_dir, img_name)
                     x1, y1, x2, y2 = map(int, face["bbox"])
                     img_copy = face["image"].copy()
@@ -249,15 +397,16 @@ class FaceDetection(QThread):
                         1,
                         cv2.LINE_AA,
                     )
-                    # cv2.imwrite(output_path, img_copy)
-                    print(f"Saved top {i+1} face for Cluster {label} to {output_path}")
+                    # 保存原图带检测框Debug
+                    # img_with_bbox_path = os.path.join(cluster_dir, f"bbox_{i + 1}_" + os.path.basename(face["path"]))
+                    # cv2.imwrite(img_with_bbox_path, img_copy)
+                    # print(f"Saved top {i + 1} face with bbox for Cluster {label} to {img_with_bbox_path}")
 
                 # 保存圆形照片（优先级最高的图片）
                 top_face = top_faces[0]
                 circular_crop = self.create_circular_crop(top_face["image"], top_face["bbox"])
                 circular_output_path = os.path.join(cluster_dir, f"FaceCluster_{label}.png")
                 cv2.imwrite(circular_output_path, circular_crop)
-
                 print(f"Saved circular cropped image for Cluster {label} to {circular_output_path}")
 
                 last_dir = os.path.basename(os.path.normpath(self.image_dir))
@@ -323,14 +472,79 @@ class FaceDetection(QThread):
                 except:
                     return 404
 
-
             # 保存 CSV 文件
             csv_output_path = os.path.join(output_dir, "face_cluster_statistics.csv")
             df = pd.DataFrame(csv_data, columns=["Name", "Count", "ShotNumber", "Frames"])
             df.to_csv(csv_output_path, index=False)
             print(f"Saved face cluster statistics to {csv_output_path}")
+            # 原始 CSV 文件路径
+            csv_path = os.path.join(output_dir, "face_cluster_statistics.csv")
+            if not os.path.exists(csv_path):
+                QMessageBox.warning(self, "Error", "Original CSV file not found.")
+                return
+            
+            parent_folder = os.path.dirname(self.output_dir)
+            video_txt_path = os.path.join(parent_folder, "video.txt")
+            if not os.path.exists(video_txt_path):
+                print("video.txt 文件未找到")
+                return 
+
+            # 读取 video.txt 文件并解析区间
+            intervals = []
+            with open(video_txt_path, 'r') as f:
+                for idx, line in enumerate(f):
+                    parts = line.strip().split()
+                    start_frame, end_frame = map(int, parts)
+                    intervals.append((start_frame, end_frame, idx + 1))  # idx + 1 作为 ShotNumber
+            
+            # 读取原始 CSV 文件
+            df = pd.read_csv(csv_path)
+
+            # 创建新的 DataFrame
+            new_data = []
+
+            # 遍历原始数据的每一行
+            for _, row in df.iterrows():
+                name = row["Name"]
+                frames = eval(row["Frames"])  # 将帧号列表字符串转换为实际列表
+
+                for frame in frames:
+                    # 查找帧所在的区间并赋予相应的 ShotNumber
+                    shot_number = None
+                    for start_frame, end_frame, shot_num in intervals:
+                        if start_frame <= frame <= end_frame:
+                            shot_number = shot_num
+                            break
+
+                    # 检查当前帧是否已经在 new_data 中
+                    existing_entry = next((entry for entry in new_data if entry["Frames"] == frame), None)
+
+                    if existing_entry:
+                        # 如果当前帧已经存在，追加 Name 和 ShotNumber
+                        existing_entry["Names"].append(name)
+                    else:
+                        # 如果当前帧不存在，创建新条目
+                        new_data.append({"Frames": frame, "Names": [name], "ShotNumber": shot_number})
+
+            # 按帧号排序
+            new_data = sorted(new_data, key=lambda x: x["Frames"])
+
+            # 转换为 DataFrame
+            new_df = pd.DataFrame([
+                {
+                    "Frames": entry["Frames"],
+                    "Names": ", ".join(entry["Names"]),
+                    "ShotNumber": entry["ShotNumber"]  
+                }
+                for entry in new_data
+            ])
+
+            # 保存新的 CSV 文件
+            new_csv_path = os.path.join(output_dir, "new_face_cluster_statistics.csv")
+            new_df.to_csv(new_csv_path, index=False)
         except PermissionError:
             return 404
+
 
     def stop(self):
         self.is_stop = 1
@@ -474,13 +688,14 @@ class ImageDialog(QDialog):
 
 
 class MappingApp(QDialog):
-    def __init__(self, image_folder, input_images_dir, parent):
+    def __init__(self, image_folder, input_images_dir, parent, video):
         super().__init__()
         self.image_folder = image_folder
         self.input_images_dir = input_images_dir
         self.imageshows = {}  # 存储文件夹的原始名称和对应的编辑框
         self.init_ui()
         self.parent = parent
+        self.video = video
 
     def init_ui(self):
         self.setWindowTitle("Editable Folder Mapping with Save and Merge")
@@ -499,7 +714,7 @@ class MappingApp(QDialog):
         run_recognition_button.setFixedWidth(150)
         
         # 创建文字标签 "fine_grained"
-        fine_grained_label = QLabel("fine_grained")
+        fine_grained_label = QLabel("fine_grained",self)
         fine_grained_label.setFixedWidth(80)  # 设置宽度，调整显示效果
         # 设置鼠标悬停时的提示
         fine_grained_label.setAlignment(Qt.AlignCenter)
@@ -673,21 +888,21 @@ class MappingApp(QDialog):
             button.setEnabled(False)
 
         # 检测 image_dir 是否存在
-        if not os.path.exists(image_dir):
-            # 如果目录不存在，给出错误提示
-            print(f"Error: The directory '{image_dir}' does not exist.")
-            QMessageBox.warning(self, "Refresh Failed", f"Error: The directory '{image_dir}' does not exist.")
-            # 重新启用按钮
-            if button is not None:
-                button.setEnabled(True)
-            return
+        # if not os.path.exists(image_dir):
+        #     # 如果目录不存在，给出错误提示
+        #     print(f"Error: The directory '{image_dir}' does not exist.")
+        #     QMessageBox.warning(self, "Refresh Failed", f"Error: The directory '{image_dir}' does not exist.")
+        #     # 重新启用按钮
+        #     if button is not None:
+        #         button.setEnabled(True)
+        #     return
 
-        facedetection = FaceDetection(image_dir, self.image_folder, slider_value)
+        facedetection = FaceDetection(image_dir, self.image_folder, slider_value, self.video)
         bar = pyqtbar(facedetection)
 
         # 连接识别完成的信号，刷新图片显示
         facedetection.finished.connect(self.refresh_images)
-        facedetection.finished.connect(self.generate_new_csv)
+        #facedetection.finished.connect(self.generate_new_csv)
         # 识别完成后重新启用按钮
         if button is not None:
             facedetection.finished.connect(lambda: button.setEnabled(True))
@@ -814,9 +1029,6 @@ class MappingApp(QDialog):
     
     def generate_new_csv(self):
         """根据原始 CSV 文件生成新的 CSV 文件"""
-        import pandas as pd
-        import os
-
         # 原始 CSV 文件路径
         csv_path = os.path.join(self.image_folder, "face_cluster_statistics.csv")
         if not os.path.exists(csv_path):
@@ -888,8 +1100,6 @@ class MappingApp(QDialog):
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to generate new CSV: {e}")
-
-
 
     def show_subtitle(self):
         # 构造matedata.csv的完整路径

@@ -516,7 +516,7 @@ class Control(QDockWidget):
         if os.path.exists(input_images_dir):
             if not os.path.exists(image_folder):
                 os.makedirs(image_folder)
-            self.facerecognize_window = MappingApp(image_folder,input_images_dir,self.parent)
+            self.facerecognize_window = MappingApp(image_folder, input_images_dir, self.parent, self.filename)
             self.facerecognize_window.setModal(False)
             self.facerecognize_window.show()
         else:
