@@ -11,6 +11,7 @@
     - Speech-to-text subtitles: faster-whisper-base
     - Object detection: git-base
     - Translation: opus-mt-en-zh
+    - Shot type recognition：pose net
 4. Potential issues:
     - If `pip install insightface` fails, please install it manually. [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
     - Some models are outdated, so the latest numpy cannot be used. Version 1.26.0 is compatible.
@@ -28,6 +29,7 @@
     - 语音识别字幕：faster-whisper-base
     - 目标检测：git-base
     - 翻译： opus-mt-en-zh
+    - 镜头类型识别：pose net
 4. 可能会遇到的问题
     - 如果pip install insightface出错，请手动安装。 [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
     - 因为有些模型比较旧，所以不能使用最新的numpy，1.26.0是可用的。
