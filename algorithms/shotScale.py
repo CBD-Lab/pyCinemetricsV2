@@ -34,7 +34,7 @@ class ShotScale(QThread):
 
     def run(self):
         # 加载模型
-        self.signal.emit(0, 0, 0, "shotscale")  # 刷新进度条
+        self.signal.emit(0, 0, 0, "Model loading...")  # 刷新进度条
         self.pose_net = self.get_model()
 
         image_files = [f for f in os.listdir(self.frame_save) if f.endswith((".jpg", ".jpeg", ".png"))]

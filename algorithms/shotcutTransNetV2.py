@@ -182,7 +182,7 @@ class TransNetV2(QThread):
             # return single_frame_pred[:len(frames)], all_frames_pred[:len(frames)]  # remove extra padded frames
 
     def run(self):
-        self.signal.emit(0, 0, 0,"shotcut")
+        self.signal.emit(0, 0, 0, "Model loading...")
 
         try:
             self.model = tf.saved_model.load(self.model_dir)
@@ -209,6 +209,7 @@ class TransNetV2(QThread):
                                       "install python wrapper by `pip install opencv-python`.")
 
         print("[TransNetV2] Extracting frames from {}".format(self.video_fn))
+        self.signal.emit(0, 0, 0, "Video processing...")
         cap = cv2.VideoCapture(self.video_fn)
         if not cap.isOpened():
             print("Error: Could not open video.")

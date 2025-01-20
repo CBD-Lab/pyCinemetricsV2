@@ -30,6 +30,9 @@ class CrewProcessor(QThread):
 
     def run(self):
         # print(1)
+
+        self.signal.emit(0, 0, 0, "Video processing...")
+        
         path=self.v_path
         cap = cv2.VideoCapture(path)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
