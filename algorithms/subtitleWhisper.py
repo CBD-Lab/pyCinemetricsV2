@@ -25,7 +25,7 @@ class SubtitleProcessorWhisper(QThread):
 
     def run(self):
         # 从视频中提取音频文件并分段
-        self.signal.emit(10, 0, 1, "Extracting mp3")
+        self.signal.emit(0, 0, 0, "Extracting mp3")
         audio_path = os.path.join(self.save_path, "subtitle.mp3")
         self.extract_audio(self.v_path, audio_path)
 
@@ -44,6 +44,7 @@ class SubtitleProcessorWhisper(QThread):
 
             model_load_start_time = time.time()
             # Use faster-whisper for transcription
+            self.signal.emit(0, 0, 0, "Model loading...")
             model = WhisperModel(r"models/faster-whisper-small", device="cpu",
                                  compute_type="int8")  # Load the small model of faster-whisper
             model_load_end_time = time.time()
@@ -65,8 +66,6 @@ class SubtitleProcessorWhisper(QThread):
                     start_time = time.time()  # Start the timer
                     segments, info = model.transcribe(segment_path, log_progress=True,multilingual=True)  # Get transcriptions
 
-                    self.signal.emit(10 + i * 90 // num_segments, 0, 1, f"Transcribing Segment {i + 1}")
-
                     for segment in segments:
                         adjusted_start = round(segment.start + current_offset / 1000, 2)
                         adjusted_end = round(segment.end + current_offset / 1000, 2)
@@ -86,6 +85,9 @@ class SubtitleProcessorWhisper(QThread):
                     if os.path.exists(segment_path):
                         os.remove(segment_path)
 
+                percent = round(float((i + 1) / num_segments) * 100)
+                self.signal.emit(percent, i, num_segments, f"Transcribing Segment {i + 1}")
+                
                 # 更新偏移量
                 current_offset += segment_duration
             print(f"Time taken for all {total_transcribe_time} seconds")

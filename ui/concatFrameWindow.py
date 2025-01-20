@@ -135,34 +135,3 @@ class ConcatFrameWindow(QDialog):
             self.setLayout(layout)
         except:
             return
-
-
-# class MainWindow(QWidget):
-#     def __init__(self):
-#         super().__init__()
-#         self.setWindowTitle("Image Combiner")
-#         self.setGeometry(300, 100, 400, 200)
-
-#         # 布局
-#         layout = QVBoxLayout()
-#         self.button = QPushButton("选择文件夹并拼接图片")
-#         self.button.clicked.connect(self.show_dialog)
-#         layout.addWidget(self.button)
-        
-#         self.setLayout(layout)
-
-#     def show_dialog(self):
-#         folder_path = QFileDialog.getExistingDirectory(self, "选择文件夹")
-#         if folder_path:
-#             self.open_concat_window(folder_path)
-
-#     def open_concat_window(self, folder_path):
-#         self.concat_window = ConcatFrameWindow(folder_path, self)
-#         self.concat_window.exec_()
-
-
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-#     window = MainWindow()
-#     window.show()
-#     sys.exit(app.exec_())

@@ -52,7 +52,7 @@ class FaceDetection(QThread):
         
     # 初始化模型
     def initialize_model(self):
-        app = FaceAnalysis(root = "../models", providers=['CPUExecutionProvider'])  # 使用 CPU
+        app = FaceAnalysis(root = "models/buffalo_l", providers=['CPUExecutionProvider'])  # 使用 CPU
         app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id = -1 强制使用 CPU
         return app
 

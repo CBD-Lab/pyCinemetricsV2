@@ -10,17 +10,16 @@ from PySide6.QtWidgets import (
     QWidget, QGridLayout, QLineEdit, QComboBox
 )
 from PySide6.QtCore import Qt, QRegularExpression
-from algorithms.objectDetection import ObjectDetection
+from algorithms.image2Text import ObjectDetection
 from algorithms.shotScale import ShotScale
 from algorithms.plotShotLength import TransNetPlot, TransNetThread
 from algorithms.shotcutTransNetV2 import TransNetV2
-from algorithms.subtitleEasyOcr import SubtitleProcessor
 from algorithms.subtitleWhisper import SubtitleProcessorWhisper
 from algorithms.translateSubtitles import TranslateSrtProcessor
-from algorithms.crewEasyOcr import CrewProcessor
+from algorithms.metaData import CrewProcessor
 from algorithms.interTitle import InterTitle
 from algorithms.img2Colors import ColorAnalysis
-from algorithms.similarity import Similarity
+from algorithms.pace import Similarity
 from algorithms.faceRecognize import *
 from ui.concatFrameWindow import ConcatFrameWindow
 from ui.multiCsvViewerDialog import MultiCsvViewerDialog
@@ -59,7 +58,7 @@ class Control(QDockWidget):
         self.translate_button = self.create_function_button("Translate", self.translate_srt)
         self.intertitle = self.create_function_button("Intertitle", self.getintertitle)
 
-        self.objects = self.create_function_button("Img2Text", self.object_detect)
+        self.objects = self.create_function_button("image2Text", self.object_detect)
 
         self.shotscale = self.create_function_button("ShotScale", self.getshotscale)
 
@@ -81,6 +80,10 @@ class Control(QDockWidget):
         # similarity 输入框
         self.sim_st_input = self.create_function_lineEdit("start")
         self.sim_ed_input = self.create_function_lineEdit("end")
+
+        # metadata 输入框
+        self.crew_st_input = self.create_function_lineEdit("Start")
+        self.crew_ed_input = self.create_function_lineEdit("End")
 
         # 滑动条
         self.colorsSlider = QSlider(Qt.Horizontal, self)  # 水平方向
@@ -128,24 +131,28 @@ class Control(QDockWidget):
 
         # 第二行，字幕
         grid_layout.addWidget(self.subtitle, 2, 0)
-        grid_layout.addWidget(self.credits, 2, 1)
-        grid_layout.addWidget(self.translate_button,2, 2)
-        grid_layout.addWidget(self.intertitle, 2, 3)
+        grid_layout.addWidget(self.translate_button,2, 1)
+        grid_layout.addWidget(self.intertitle, 2, 2)
 
-        # 第三行，目标检测
-        grid_layout.addWidget(self.object_box, 3, 0)
-        grid_layout.addWidget(self.objects, 3, 1)
-        grid_layout.addWidget(self.facerecognize, 3, 2)#修改
+        # 第三行，字幕卡
+        grid_layout.addWidget(self.crew_st_input, 3, 0)
+        grid_layout.addWidget(self.crew_ed_input, 3, 1)
+        grid_layout.addWidget(self.credits, 3, 2)
 
-        # 第四行，shotscale
-        grid_layout.addWidget(self.shotscale, 4, 0)
+        # 第四行，目标检测
+        grid_layout.addWidget(self.object_box, 4, 0)
+        grid_layout.addWidget(self.objects, 4, 1)
+        grid_layout.addWidget(self.facerecognize, 4, 2)#修改
 
-        # 第五行， Colors
-        grid_layout.addWidget(self.colors, 5, 0)
-        grid_layout.addWidget(self.colorsSlider, 5, 1)  
-        grid_layout.addWidget(self.labelColors, 5, 2)  
+        # 第五行，shotscale
+        grid_layout.addWidget(self.shotscale, 5, 0)
 
-        # 第六行 Pace 和 shotlenimgplot 处理区间[start, end]
+        # 第六行， Colors
+        grid_layout.addWidget(self.colors, 6, 0)
+        grid_layout.addWidget(self.colorsSlider, 6, 1)
+        grid_layout.addWidget(self.labelColors, 6, 2)
+
+        # 第七行 Pace 和 shotlenimgplot 处理区间[start, end]
         grid_layout.addWidget(self.sim_st_input, 7, 0)
         grid_layout.addWidget(self.sim_ed_input, 7, 1)
         grid_layout.addWidget(self.similarity_box, 7, 2)
@@ -212,6 +219,7 @@ class Control(QDockWidget):
 
         # 第三行
         self.objects.setEnabled(enable)
+        self.facerecognize.setEnabled(enable)
 
         # 第四行
         self.shotscale.setEnabled(enable)
@@ -297,7 +305,6 @@ class Control(QDockWidget):
         st = self.fc_st_input.text()
         ed = self.fc_ed_input.text()
 
-
         if not st and not ed:
             self.show_warning("Error", f"Start and end cannot be empty!")
         elif not st:
@@ -332,7 +339,6 @@ class Control(QDockWidget):
         subtitleprocesser.subtitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
         subtitleprocesser.finished.connect(lambda: self.subtitles_toggle_buttons(True))
 
-        self.video_path = self.filename  # 视频路径
         self.parent.shot_finished.emit()
         bar = pyqtbar(subtitleprocesser)
     
@@ -346,21 +352,29 @@ class Control(QDockWidget):
         translate_processor.finished.connect(lambda: self.toggle_buttons(True))
         self.parent.shot_finished.emit()
         bar = pyqtbar(translate_processor)
-
+    
     # 演职员表
     def getcredits(self, filename):
-        if os.path.exists("./img/"+os.path.basename(self.filename)[0:-4]+"/frame"):
-            imgpath = os.path.basename(self.filename)[0:-4]
-            save_path = r"./img/" + imgpath + "/"
-            creditsprocesser = CrewProcessor(self.filename, save_path, self.subtitleValue, self.parent)
-        else:
+        if not os.path.exists(self.frame_save):
             self.toggle_buttons(True)
             return
+        
+        st = self.crew_st_input.text()
+        ed = self.crew_ed_input.text()
 
-        creditsprocesser.Crewsignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
-        creditsprocesser.finished.connect(lambda: self.credits_toggle_buttons(True))
+        if not st and not ed:
+            self.show_warning("Error", f"Start and end cannot be empty!")
+        elif not st:
+            self.show_warning("Error", f"Start cannot be empty!")
+        elif not ed:
+            self.show_warning("Error", f"End cannot be empty!")
+        elif int(st) < 0 or int(ed) >= self.parent.frameCnt or int(st) > int(ed):
+            self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
+        else:
+            creditsprocesser = CrewProcessor(self.filename, self.image_save, self.subtitleValue, self.parent,st=int(st),ed=int(ed))
+            creditsprocesser.Crewsignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
+            creditsprocesser.finished.connect(lambda: self.credits_toggle_buttons(True))
 
-        self.video_path = self.filename  # 视频路径
         self.parent.shot_finished.emit()
         bar = pyqtbar(creditsprocesser)
 
@@ -374,7 +388,6 @@ class Control(QDockWidget):
         intertitle.intertitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
         intertitle.finished.connect(lambda: self.intertitles_toggle_buttons(True))
 
-        self.video_path = self.filename  # 视频路径
         self.parent.shot_finished.emit()
         bar = pyqtbar(intertitle)
 
@@ -512,7 +525,6 @@ class Control(QDockWidget):
 
         # 在子页面关闭时释放标志
         self.facerecognize_window.finished.connect(self.on_child_window_closed)
-        #self.facerecognize_window.Crewsignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
     
     def on_child_window_closed(self):
         """子页面关闭时重置标志"""

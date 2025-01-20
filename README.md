@@ -4,8 +4,7 @@
 
 1. After cloning, the only missing folder is `models`. After downloading the `models` folder from the cloud drive, just place it in the directory, and it will run.
 2. Files shared through the cloud drive: Model files  
-   - Link: [https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234](https://pan.baidu.com/s/1GMlOYvglimvSoIcIowuM0A?pwd=1234)  
-   - Extraction code: 1234
+   - Link: [Baidu Netdisk](https://pan.baidu.com/s/1GMlOYvglimvSoIcIowuM0A?pwd=1234), [Google Drive](https://drive.google.com/drive/folders/1ho48Bx6KF-fZewnwBpoHmdI5F1XCY6Xm?usp=sharing)  
 3. Model and functionality correspondences:
     - Video boundary detection: transnetv2
     - Face recognition: buffalo_l
@@ -22,8 +21,7 @@
 
 1. clone之后仅缺少`models`文件夹，网盘下载`models`文件夹后放进目录即可运行。
 2. 通过网盘分享的文件：模型文件  
-   - 链接: [https://pan.baidu.com/s/1iQQPdZUqnkrrGkSw2fts4g?pwd=1234](https://pan.baidu.com/s/1GMlOYvglimvSoIcIowuM0A?pwd=1234)  
-   - 提取码: 1234
+   - 链接: [Baidu Netdisk](https://pan.baidu.com/s/1GMlOYvglimvSoIcIowuM0A?pwd=1234), [Google Drive](https://drive.google.com/drive/folders/1ho48Bx6KF-fZewnwBpoHmdI5F1XCY6Xm?usp=sharing)  
 3. 模型与功能对应
     - 视频边界检测：transnetv2
     - 人脸识别：buffalo_l

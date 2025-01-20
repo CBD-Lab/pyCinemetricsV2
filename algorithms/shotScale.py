@@ -30,9 +30,13 @@ class ShotScale(QThread):
 
         self.prototxt = prototxt_25 if keypoint_num == 25 else prototxt_18
         self.caffemodel = caffemodel_25 if keypoint_num == 25 else caffemodel_18
-        self.pose_net = self.get_model()
+        
 
     def run(self):
+        # 加载模型
+        self.signal.emit(0, 0, 0, "shotscale")  # 刷新进度条
+        self.pose_net = self.get_model()
+
         image_files = [f for f in os.listdir(self.frame_save) if f.endswith((".jpg", ".jpeg", ".png"))]
         #print(self.frame_save)
         result = []
@@ -49,9 +53,6 @@ class ShotScale(QThread):
             percent = round(float(task_id / len(image_files)) * 100)
             self.signal.emit(percent, task_id, len(image_files), "shotscale")  # 刷新进度条
             task_id += 1
-            # cv2.imshow("frame", imgDetect)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
             print("Detected People:", num)
             frame_id = img.replace("frame", "").replace(".jpg", "").replace(".jpeg", "").replace(".png", "")
             result.append([frame_id, type, num])

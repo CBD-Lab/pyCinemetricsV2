@@ -1,7 +1,6 @@
 import os
 import time
-
-import easyocr
+from paddleocr import PaddleOCR
 import re
 import cv2
 import csv
@@ -19,10 +18,9 @@ class InterTitle(QThread):
     # 线程结束信号
     finished = Signal(bool)
 
-    def __init__(self, v_path, save_path, intertitleValue, parent):
+    def __init__(self, v_path, save_path, intertitleValue,parent):
         super(InterTitle, self).__init__()
-        #self.reader = easyocr.Reader(['ch_sim', 'en'])
-        self.reader = easyocr.Reader(['ch_tra', 'en'])
+        self.reader = PaddleOCR(use_angle_cls=True)
         self.v_path = v_path
         self.save_path = save_path
         self.intertitleValue = intertitleValue
@@ -43,17 +41,17 @@ class InterTitle(QThread):
                 match = re.search(r'\d+', img)
                 number = int(match.group())
                 img_path = self.save_path + "/frame/" + img  # 构建图片的完整路径
-                img_ = cv2.imread(img_path)
-                wordslist = self.reader.readtext(img_)
+                wordslist = self.reader.ocr(img_path, cls=True)
                 str=""
-                for w in wordslist:
-                    if w[1] is not None:
-                        w = list(w)
-                        pattern = r'[^\u4e00-\u9fa5a-zA-Z]'
-                        w[1] = re.sub(pattern, ' ', w[1])
-                        str=str+w[1]
-                        intertitleStr = intertitleStr + w[1]
-                # print(number)
+                if wordslist[0]:
+                    for w in wordslist[0]:
+                        if w[1][0] is not None:
+                            w_str=w[1][0]
+                            pattern = r'[^\u4e00-\u9fa5a-zA-Z]'
+                            w_str = re.sub(pattern, ' ', w_str)
+                            str=str+w_str+' '
+                            intertitleStr = intertitleStr + w_str+' '
+                    # print(number)
                 if str:
                     intertitleList.append([number, str])
                     intertitleStr = intertitleStr + '\n\n'
