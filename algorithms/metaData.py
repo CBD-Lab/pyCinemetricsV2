@@ -1,6 +1,6 @@
 import os
 import re
-import easyocr
+from paddleocr import PaddleOCR
 import cv2
 import csv
 import numpy as np
@@ -20,7 +20,7 @@ class CrewProcessor(QThread):
 
     def __init__(self, v_path, save_path, CrewValue, parent,st,ed):
         super(CrewProcessor, self).__init__()
-        self.reader = easyocr.Reader(['ch_sim', 'en'])
+        self.reader = PaddleOCR(use_angle_cls=True)
         self.v_path = v_path
         self.save_path = save_path
         self.CrewValue = 10
@@ -29,10 +29,7 @@ class CrewProcessor(QThread):
         self.parent = parent
 
     def run(self):
-        # print(1)
-
-        self.signal.emit(0, 0, 0, "Video processing...")
-        
+        print(1)
         path=self.v_path
         cap = cv2.VideoCapture(path)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -40,18 +37,9 @@ class CrewProcessor(QThread):
             self.ed=frame_count
         CrewList = []
         CrewStr = ""
-        List = []
-        Str_z = {}
+        word={}
+        n=0
         i = self.st
-        n = 0
-        _, frame = cap.read(i)
-        h,w=frame.shape[0:2]    #图片尺寸，截取下三分之一和中间五分之四作为字幕检测区域
-        start_h = 0
-        end_h = h
-        start_w = 0
-        end_w = w
-        img1=frame[start_h:end_h,start_w:end_w,:]
-        i=i+1
         th=0.2
 
         # 进度条设置
@@ -64,63 +52,42 @@ class CrewProcessor(QThread):
             if self.is_stop:
                 self.finished.emit(True)
                 break
-
-            if img1 is None:
-                break
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
             _, frame = cap.read(i)
-            h, w = frame.shape[0:2]  # 图片尺寸，截取下三分之一和中间五分之四作为字幕检测区域
-            start_h = (h // 5)*2
-            end_h = h
-            start_w = 0
-            end_w = w
-            img2 = frame[start_h:end_h, start_w:end_w]
-            Crew_event= self.CrewDetect(img1, img2, th)
-            if Crew_event:
-                wordslist = self.reader.readtext(img2)
-                if len(wordslist) > 10:
-                    #记录图片和帧号
-                    stitched_frames.append(frame)
-                    num_frames.append(i)
-
-                    Str = ""
-                    x_Str = ""
-                    old_w = []
-                    for w in wordslist:
-                        if old_w == []:
-                            old_w = w
-                        if w[1] is not None:
-                            w = list(w)
-                            pattern = r'[^\u4e00-\u9fa5a-zA-Z]'
-                            w[1] = re.sub(pattern, ' ', w[1])
-                            if (not List or w[1] != List[-1][1]):
-                                List.append([i, w[1]])
-                                if abs(w[0][0][1] - old_w[0][0][1]) > 10:
-                                    y_Str = x_Str
-                                    x_Str = re.sub(' ', '', x_Str)
-                                    if x_Str not in Str_z.values():
-                                        Str_z[n] = x_Str
-                                        n = n + 1
-                                        Str = Str + y_Str + '\n'
-                                    x_Str = ""
-                                    old_w = w
-                                x_Str = x_Str + w[1] + ' '
-                    if (Str != "" and Str != '\n'):
-                        CrewList.append([i, Str])
-                        CrewStr = CrewStr + '\n' + str(i) + '\n' + Str + '\n'
-            else:
-                img1=img2
+            img1 = frame
+            wordslist = self.reader.ocr(img1, cls=True)
+            if wordslist[0]:
+                #记录图片和帧号
+                stitched_frames.append(frame)
+                num_frames.append(i)
+                Str = ""
+                Str_z=""
+                Str_x=""
+                for w in wordslist[0]:
+                    if w[1] is not None:
+                        if w[1][0] is not None:
+                            w_str = w[1][0]
+                            # pattern = r'[^\u4e00-\u9fa5a-zA-Z]'
+                            # w_str = re.sub(pattern, ' ', w_str)
+                            Str_z = Str_z + w_str + ' '
+                            Str_x = re.sub(' ', '', Str_z)
+                if Str_x not in word.values():
+                    word[n]=Str_x
+                    n=n+1
+                    Str=Str_z
+                if Str != "" :
+                    CrewList.append([i, Str])
+                    CrewStr = CrewStr + '\n' + str(i) + '\n' + Str
             i = i + self.CrewValue
             percent = round(float((i + 1-self.st) / (self.ed-self.st)) * 100)
-            # print(percent)
-            self.signal.emit(percent, i + 1-self.st, self.ed-self.st, "MetaData")
+            self.signal.emit(percent, i + 1-self.st, self.ed-self.st, "M")
         self.signal.emit(101, 101, 101, "matedata")  # 完事了再发一次
 
         if self.is_stop:
             self.finished.emit(True)
         else:
             self.CrewImage(stitched_frames,num_frames)
-            # print("显示字幕结果", CrewStr)
+            print("显示字幕结果", CrewStr)
             self.Crew2Srt(CrewList, self.save_path)
             self.Crewsignal.emit(CrewStr)
             cap.release()

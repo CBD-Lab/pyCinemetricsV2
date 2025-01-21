@@ -279,6 +279,7 @@ class Control(QDockWidget):
         self.image_save = "./img/" + str(os.path.basename(self.filename )[0:-4])
         self.parent.frame_save = self.frame_save
         self.parent.image_save = self.image_save
+        self.toggle_buttons(True)
 
     '''
     功能模块写成if else 的原因是，在没有视频时或者在没有执行shotcut的情况下点击其他功能时，如果点击按钮，不希望所有按钮变成不能点击的灰色
