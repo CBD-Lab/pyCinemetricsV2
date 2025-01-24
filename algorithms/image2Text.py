@@ -103,7 +103,7 @@ class ObjectDetection(QThread):
 
         # 读取txt文件中的帧号范围
         try:
-            with open(txt_path, 'r') as f:
+            with open(txt_path, 'r', encoding='utf-8') as f:
                 segments = [list(map(int, line.strip().split())) for line in f if line.strip()]
         except Exception as e:
             print(f"读取文件失败: {e}")
@@ -213,7 +213,7 @@ class ObjectDetection(QThread):
         translate_model.to(device)
         try:
             # 打开 CSV 文件以写入模式
-            with open(self.output_csv_path, mode="w+", newline="") as csvfile:
+            with open(self.output_csv_path, mode="w+", newline="", encoding='utf-8') as csvfile:
                 csv_writer = csv.writer(csvfile)
                 
                 # 写入 CSV 表头
@@ -308,7 +308,7 @@ class ObjectDetection(QThread):
         # 读取 CSV 文件中的每行句子
         data = []
         try:
-            with open(filename, 'r') as csvfile:
+            with open(filename, 'r', encoding='utf-8') as csvfile:
                 csv_reader = csv.reader(csvfile)
                 for row in csv_reader:
                     if len(row) > 1:
@@ -366,7 +366,7 @@ class ObjectDetection(QThread):
         # 读取 CSV 文件中的每行句子
         data = []
         try:
-            with open(filename, 'r') as csvfile:
+            with open(filename, 'r', encoding='utf-8') as csvfile:
                 csv_reader = csv.reader(csvfile)
                 for row in csv_reader:
                     if len(row) > 1:

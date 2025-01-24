@@ -364,7 +364,7 @@ class TransNetV2(QThread):
         self.finished.emit(True)
 
 def getFrame_number(f_path):
-    f = open(f_path, 'r')
+    f = open(f_path, 'r', encoding='utf-8')
     Frame_number = []
 
     for line in f:

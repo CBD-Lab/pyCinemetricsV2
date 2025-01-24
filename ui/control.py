@@ -245,7 +245,7 @@ class Control(QDockWidget):
         ImgPath = os.path.join(self.image_save, img_name)
         self.parent.analyze.add_tab_with_image(img_name[0:-4], ImgPath)
 
-    def subtitles_toggle_buttons(self, enable, img_name:str="subtitle.png"):
+    def subtitles_toggle_buttons(self, enable, img_name:str="subtitle_wc.png"):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
         ImgPath = os.path.join(self.image_save, img_name)

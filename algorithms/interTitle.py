@@ -20,7 +20,12 @@ class InterTitle(QThread):
 
     def __init__(self, v_path, save_path, intertitleValue,parent):
         super(InterTitle, self).__init__()
-        self.reader = PaddleOCR(use_angle_cls=True)
+        self.reader = PaddleOCR(
+            use_angle_cls=True,
+            show_log=False,
+            det_model_dir= r"./models/paddleocr/whl/det/ch/ch_PP-OCRv4_det_infer/",
+            cls_model_dir= r"./models/paddleocr/whl/cls/ch/ch_ppocr_mobile_v2.0_cls_infer/",
+            rec_model_dir= r"./models/paddleocr/whl/rec/ch/ch_PP-OCRv4_rec_infer/")
         self.v_path = v_path
         self.save_path = save_path
         self.intertitleValue = intertitleValue
@@ -83,7 +88,7 @@ class InterTitle(QThread):
         video.release()
 
         csv_path = os.path.join(savePath, "intertitle.csv")
-        csv_File = open(csv_path, "w+", newline='')
+        csv_File = open(csv_path, "w+", newline='', encoding='utf-8')
         srt_File = os.path.join(savePath, "intertitle.srt")
 
         name = ['FrameId', 'intertitles']

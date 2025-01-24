@@ -326,7 +326,7 @@ class ShotScale(QThread):
 
     def shotscale_csv(self, detectInfo, savePath):
         # path为输出路径和文件名，newline=''是为了不出现空行
-        shotscale_csv = open(os.path.join(savePath, "shotscale.csv"), "w+", newline = '')
+        shotscale_csv = open(os.path.join(savePath, "shotscale.csv"), "w+", newline = '', encoding='utf-8')
         # name为列名
         name = ['FrameId', 'ShotScale', 'Detect_Person_Num']
         try:

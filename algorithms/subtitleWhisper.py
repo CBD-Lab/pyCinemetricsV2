@@ -3,9 +3,13 @@ import torch
 from faster_whisper import WhisperModel
 from moviepy import VideoFileClip
 from pydub import AudioSegment
+import matplotlib.pyplot as plt
+import jieba.posseg as pseg
 import time
 import cv2
 import csv
+from wordcloud import WordCloud
+from collections import Counter
 from algorithms.wordCloud2Frame import WordCloud2Frame
 from ui.progressBar import *
 from moviepy import VideoFileClip
@@ -100,6 +104,10 @@ class SubtitleProcessorWhisper(QThread):
             self.subtitle2Srt(subtitleList, self.save_path)
             self.subtitle2Csv(subtitleList, self.save_path)
 
+            # 生成词云
+            input_csv = os.path.join(self.save_path, 'subtitle.csv') 
+            self.generate_word_cloud_from_csv_ch(input_csv, 2, os.path.join(self.save_path, "subtitle_wc.png"))
+
             # 完成处理
             self.signal.emit(101, 101, 101, "Subtitle")
             self.finished.emit(True)
@@ -161,6 +169,61 @@ class SubtitleProcessorWhisper(QThread):
         minutes, seconds = divmod(int(seconds), 60)
         hours, minutes = divmod(minutes, 60)
         return f"{hours:02}:{minutes:02}:{seconds:02},{millis:03}"
+
+    def generate_word_cloud_from_csv_ch(self, filename, col, output_path):
+
+        # 读取 CSV 文件中的每行句子
+        data = []
+        try:
+            with open(filename, 'r', encoding='utf-8') as csvfile:
+                csv_reader = csv.reader(csvfile)
+                for row in csv_reader:
+                    if len(row) > 1:
+                        # 保留空格
+                        data.append(row[col].strip())  # 假设目标列col
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return
+        
+        if not data:
+            print("Error: No data found in the CSV file.")
+            return
+        
+        # 将所有句子拼接成一个字符串
+        all_text = " ".join(data)  # 保留原始空格
+
+        if not all_text.strip():
+            print("Error: No valid text found.")
+            return
+
+        # 自定义停用词（可以添加更多停用词）
+        stop_words = set([
+            '的', '了', '在', '是', '我', '他', '她', '它', '我们', '你', '他们', '这', '那',
+            '与', '和', '对', '为', '上', '下', '中', '大', '小', '要', '也', '就', '不', '能'
+        ])
+
+        # 使用 jieba 提取名词
+        words = pseg.cut(all_text)  # 使用 pseg.cut() 进行词性标注
+        nouns = [word for word, flag in words if 'n' in flag]  # 提取名词（词性标记中包含 'n' 表示名词）
+
+        # 去除停用词
+        filtered_nouns = [word for word in nouns if word not in stop_words]
+
+        # 统计词频
+        word_counts = Counter(filtered_nouns)
+
+        # 去除低频词（例如，出现次数小于 2 的词）
+        min_freq = 2
+        filtered_word_counts = {word: count for word, count in word_counts.items() if count >= min_freq}
+
+        font_path = "./fonts/msyh.ttf"
+        wordcloud = WordCloud(width=800, height=600, background_color='white', font_path=font_path).generate_from_frequencies(filtered_word_counts)
+        print("Wordcloud image size:", wordcloud.to_array().shape)
+        # 显示并保存词云图
+        plt.figure(figsize=(8, 6))  # 设置显示的尺寸
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis('off')
+        plt.savefig(output_path)
 
     def stop(self):
         self.is_stop = 1
