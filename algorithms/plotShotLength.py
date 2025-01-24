@@ -13,7 +13,7 @@ class TransNetThread(QThread):
     signal = Signal(int, int, int, str)
     finished = Signal(bool)
 
-    def __init__(self, image_save_path=None, start=0,end=0,parent=None):
+    def __init__(self, image_save_path=None, start=0, end=0,parent=None):
         super().__init__()
         self.image_save_path = image_save_path
         df = pd.read_csv(os.path.join(self.image_save_path, "shotlen.csv"))

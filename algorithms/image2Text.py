@@ -190,7 +190,7 @@ class ObjectDetection(QThread):
         try:
             # 可能引发错误的代码块
 
-            subtitle_model_path = r'./models/git-base'  # 修改为 opus-mt-en-zh 模型
+            subtitle_model_path = r'./models/git-base' 
             processor = GitProcessor.from_pretrained(subtitle_model_path)
             subtitle_model = GitForCausalLM.from_pretrained(subtitle_model_path)
             subtitle_model.to(device)

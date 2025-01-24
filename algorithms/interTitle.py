@@ -50,11 +50,11 @@ class InterTitle(QThread):
                             pattern = r'[^\u4e00-\u9fa5a-zA-Z]'
                             w_str = re.sub(pattern, ' ', w_str)
                             str=str+w_str+' '
-                            intertitleStr = intertitleStr + w_str+' '
+                            # intertitleStr = intertitleStr + w_str+' '
                     # print(number)
                 if str:
                     intertitleList.append([number, str])
-                    intertitleStr = intertitleStr + '\n\n'
+                    intertitleStr = intertitleStr + match.group() + '\n' + str + '\n\n'
 
                 percent = round(float((index + 1) / len(imglist)) * 100)
                 self.signal.emit(percent, index + 1, len(imglist), "interTitle")  # 发送实时任务进度和总任务进度)
