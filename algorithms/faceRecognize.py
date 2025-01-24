@@ -47,6 +47,7 @@ class FaceDetection(QThread):
         self.video_path = video
 
     def run(self):
+        self.signal.emit(0, 0, 0, "faceDetect")
         last_dir = os.path.basename(os.path.normpath(self.image_dir))
         if last_dir == "ImagetoText":
             if os.path.exists(self.image_dir) and has_images_in_directory(self.image_dir):
@@ -62,9 +63,9 @@ class FaceDetection(QThread):
         image_paths = [os.path.join(self.image_dir, img) for img in os.listdir(self.image_dir) if img.endswith(('.jpg', '.png'))]
         # 提取特征
         features, face_images, original_images, face_poses, eye_statuses = self.extract_features(app, image_paths)
-        if self.is_stop != 0:
-            self.finished.emit(True)
-            return
+        # if self.is_stop != 0:
+        #     self.finished.emit(True)
+        #     return
         if len(features) == 0:
             print("No faces detected!",image_paths)
             self.finished.emit(False)
@@ -206,22 +207,17 @@ class FaceDetection(QThread):
         return np.array(features), face_images, original_images, face_poses, eye_statuses
 
     # 聚类人脸
-    def cluster_faces(self, features, eps=0.3, min_samples=2, n_components=50):
+    def cluster_faces(self, features, eps=0.3, min_samples=2):
         """
-        使用 PCA 对特征进行降维后进行 DBSCAN 聚类
+        使用 DBSCAN 聚类，不使用 PCA 进行降维
         :param features: 提取的特征向量
         :param eps: DBSCAN 的邻域半径
         :param min_samples: DBSCAN 的最小样本数
-        :param n_components: PCA 降维后的维度
         :return: 聚类标签
         """
-        # 使用 PCA 进行降维
-        pca = PCA(n_components=n_components)
-        features_reduced = pca.fit_transform(features)
-
-        # 使用降维后的特征进行 DBSCAN 聚类
+        # 使用 DBSCAN 聚类
         clustering = DBSCAN(eps=eps, min_samples=min_samples, metric='cosine')
-        labels = clustering.fit_predict(features_reduced)
+        labels = clustering.fit_predict(features)
 
         return labels
 
@@ -236,14 +232,16 @@ class FaceDetection(QThread):
         y = np.convolve(w / w.sum(), s, mode='same')
         return y[window_len - 1:-window_len + 1]
 
-    def process_video_by_segments(self, video_path, txt_path, output_dir, target_width=640, target_height=360, len_window=100, threshold=0.05, min_distance=100):
-        """根据帧号范围处理视频并保存每段关键帧"""
+    def process_video_by_segments(self, video_path, txt_path, output_dir):
+        """根据帧号范围处理视频并从每个镜头区域提取5张图片"""
+        
+        # 删除目录及其所有内容
         if os.path.exists(output_dir):
-            # 删除目录及其所有内容
             shutil.rmtree(output_dir)
+        
         # 创建新的空目录
         os.makedirs(output_dir)
-        
+
         filename = os.path.splitext(os.path.basename(video_path))[0]
 
         # 加载视频
@@ -251,8 +249,8 @@ class FaceDetection(QThread):
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        print(f"视频总帧数: {frame_count}, 原始分辨率: {original_width}x{original_height}, 目标分辨率: {target_width}x{target_height}")
+
+        print(f"视频总帧数: {frame_count}, 原始分辨率: {original_width}x{original_height}")
 
         # 读取txt文件中的帧号范围
         try:
@@ -263,8 +261,7 @@ class FaceDetection(QThread):
             return
 
         # 进度条设置
-        file_list = segments
-        total_number = len(file_list)  # 总任务数
+        total_number = len(segments)  # 总任务数
         task_id = 0  # 子任务序号
 
         for seg_idx, (start_frame, end_frame) in enumerate(segments):
@@ -274,62 +271,35 @@ class FaceDetection(QThread):
             
             print(f"处理第 {seg_idx} 段: 帧号范围 {start_frame}-{end_frame}")
 
-            frame_diffs = []
-            prev_frame = None
+            # 计算该段的帧数并划分为5等分
+            total_frames_in_segment = end_frame - start_frame + 1
+            if total_frames_in_segment < 5:
+                print(f"段 {seg_idx} 的帧数少于5帧，无法按5分位提取，跳过该段")
+                continue
 
-            # 提取段内帧差
-            for i in range(start_frame, end_frame + 1):
-                if self.is_stop:
-                    return
-                cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            # 计算每一分位的位置
+            frame_positions = [start_frame + (total_frames_in_segment * i) // 5 for i in range(5)]
+
+            # 提取5个位置的帧并保存
+            for i, frame_pos in enumerate(frame_positions):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
                 ret, frame = cap.read()
                 if not ret:
-                    print(f"读取帧 {i} 失败，跳过")
+                    print(f"读取帧 {frame_pos} 失败，跳过")
                     continue
 
-                # 调整分辨率
-                resized_frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
-                curr_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+                # 直接保存原始分辨率的图像
+                output_path = os.path.join(output_dir, f"{filename}_segment_{seg_idx}_frame_{frame_pos}_shot_{i+1}.jpg")
+                cv2.imwrite(output_path, frame)  # 保存图像
 
-                if prev_frame is not None:
-                    diff = cv2.absdiff(curr_frame, prev_frame)
-                    frame_diffs.append(np.sum(diff) / (target_width * target_height))
-                prev_frame = curr_frame
-
-
-            # 平滑差异并检测局部极值
-            frame_diffs = np.array(frame_diffs)
-            if len(frame_diffs) > 0:
-                smoothed_diffs = self.smooth(frame_diffs, len_window)
-                keyframes = argrelextrema(smoothed_diffs, np.greater)[0]
-
-                # 阈值过滤
-                keyframes = [k for k in keyframes if smoothed_diffs[k] > threshold]
-
-                # 最小间隔过滤
-                filtered_keyframes = []
-                for k in keyframes:
-                    if len(filtered_keyframes) == 0 or k - filtered_keyframes[-1] >= min_distance:
-                        filtered_keyframes.append(k)
-                keyframes = filtered_keyframes
-
-                # 保存段内关键帧
-                for k_idx in keyframes:
-                    frame_idx = start_frame + k_idx
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-                    ret, frame = cap.read()
-                    if ret:
-                        resized_frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
-                        output_path = os.path.join(output_dir, f"{filename}_segment_{seg_idx}_frame_{frame_idx}.jpg")
-                        cv2.imwrite(output_path, resized_frame)
-            else:
-                print(f"段 {seg_idx} 没有足够的帧计算帧差")
             task_id += 1
             percent = round(float(task_id / total_number) * 100)
-            self.signal.emit(percent, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
-        self.signal.emit(99, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
+            self.signal.emit(percent, task_id, total_number, "ExtractKeyFrame")  # 发送实时任务进度和总任务进度
+        
+        self.signal.emit(99, task_id, total_number, "ExtractKeyFrame")  # 发送任务完成信号
         cap.release()
         print(f"所有段处理完成，结果保存在: {output_dir}")
+
 
     # 保存最终结果
     def save_final_faces(self, labels, face_images, original_images, face_poses, eye_statuses, output_dir):
@@ -351,6 +321,14 @@ class FaceDetection(QThread):
         # 过滤掉数量小于阈值的聚类
         filtered_labels = {label: count for label, count in label_counts.items() if count >= min_threshold}
         print('Filtered label counts:', filtered_labels)
+        # 删除输出目录中的所有图片
+        for file_name in os.listdir(self.output_dir):
+            file_path = os.path.join(self.output_dir, file_name)
+            if file_name.endswith(('.jpg', '.png')):  # 只删除图片文件
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Error while deleting file {file_path}: {e}")
         try:
             for label, count in filtered_labels.items():
                 cluster_faces = []  # 保存当前聚类中的所有人脸信息
@@ -834,8 +812,9 @@ class MappingApp(QDialog):
             horizontal_layout = QHBoxLayout()
             horizontal_layout.setAlignment(Qt.AlignLeft)
 
-            # 可编辑的文本框
-            name_edit = QLineEdit(image_name)
+            # 去掉文件扩展名并创建可编辑的文本框
+            name_without_extension = os.path.splitext(image_name)[0]
+            name_edit = QLineEdit(name_without_extension)
             name_edit.setFixedWidth(200)
             name_edit.textChanged.connect(lambda text, btn=name_edit: self.clear_red_border(btn))
             horizontal_layout.addWidget(name_edit)
@@ -858,6 +837,7 @@ class MappingApp(QDialog):
             if col == 4:  # 每行四个单元后换行
                 col = 0
                 row += 1
+
 
 
     def clear_grid_layout(self):
@@ -946,7 +926,9 @@ class MappingApp(QDialog):
         for new_name, original_name in new_names.items():
             if new_name != original_name:
                 original_path = os.path.join(self.image_folder, original_name)
-                new_path = os.path.join(self.image_folder, new_name)
+                original_extension = os.path.splitext(original_name)[1]  # 获取原始扩展名
+                new_name_with_extension = new_name + original_extension  # 保持原始扩展名
+                new_path = os.path.join(self.image_folder, new_name_with_extension)
                 os.rename(original_path, new_path)
 
         # 更新 face_cluster_statistics.csv 文件
@@ -997,6 +979,7 @@ class MappingApp(QDialog):
         else:
             QMessageBox.warning(self, "Error", f"CSV file not found")
             return
+
         QMessageBox.information(self, "Success", "Image names and CSV file have been successfully updated!")
         self.refresh_images()
 
