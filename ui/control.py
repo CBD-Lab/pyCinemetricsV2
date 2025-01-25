@@ -58,7 +58,7 @@ class Control(QDockWidget):
         self.translate_button = self.create_function_button("Translate", self.translate_srt)
         self.intertitle = self.create_function_button("Intertitle", self.getintertitle)
 
-        self.objects = self.create_function_button("img2Txt", self.object_detect)
+        self.objects = self.create_function_button("image2Text", self.object_detect)
 
         self.shotscale = self.create_function_button("ShotScale", self.getshotscale)
 
