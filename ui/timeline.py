@@ -66,8 +66,6 @@ class Timeline(QDockWidget):
 
     def on_filename_changed(self, filename):
         # 当文件名发生变化时调用该方法
-        # self.listWidget.clear()  # 清空当前的列表
-        # self.listWidget = QListWidget(self)
         if filename is None or filename == '':  # 如果文件名无效，则不做任何处理
             return
         # 调用 showShot 方法来显示与文件名对应的镜头

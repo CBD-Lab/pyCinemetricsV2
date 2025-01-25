@@ -177,8 +177,10 @@ class SubtitleProcessorWhisper(QThread):
         try:
             with open(filename, 'r', encoding='utf-8') as csvfile:
                 csv_reader = csv.reader(csvfile)
+                # 跳过第一行（列名）
+                next(csv_reader)
                 for row in csv_reader:
-                    if len(row) > 1:
+                    if len(row) > col:
                         # 保留空格
                         data.append(row[col].strip())  # 假设目标列col
         except Exception as e:

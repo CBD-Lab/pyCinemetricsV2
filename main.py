@@ -1,4 +1,5 @@
 import sys
+import os
 import qdarktheme
 import cv2
 from PySide6.QtWidgets import (
@@ -38,6 +39,11 @@ class MainWindow(QMainWindow):
         self.frameCnt = 0
 
     def init_ui(self):
+
+        # 信号与槽的连接
+        self.filename_changed.connect(self.on_filename_changed)  # 文件名更改信号连接到处理方法
+        self.on_filename_changed()  # 初始化时调用一次
+
         # 初始化窗口界面
         # 设置应用图标
         # self.setWindowIcon(QIcon(resource_path('resources/icon.ico')))
@@ -45,6 +51,7 @@ class MainWindow(QMainWindow):
         # 延迟导入 VLC，创建 VLC 播放器实例
         self.player = VLCPlayer(self)
         self.setCentralWidget(self.player)  # 设置 VLC 播放器为主窗口的中心部件
+        self.video_play_changed.connect(self.player.on_video_play_changed)  # 点击timeline中的图片从图片处开始播放
 
         # 创建其他功能窗口并添加到停靠区域
         self.info = Info(self)  # 信息窗口
@@ -127,11 +134,6 @@ class MainWindow(QMainWindow):
         self.resizeDocks([self.timeline],
                          [int(self.height() * 0.5)], Qt.Vertical)  # 设置底部时间轴窗口的高度
 
-        # 信号与槽的连接
-        self.filename_changed.connect(self.on_filename_changed)  # 文件名更改信号连接到处理方法
-        self.on_filename_changed()  # 初始化时调用一次
-        self.video_play_changed.connect(self.player.on_video_play_changed)  # 点击timeline中的图片从图片处开始播放
-
     def on_filename_changed(self, filename=None):
         # 文件名改变时更新窗口标题
         if filename is None or filename == '':
@@ -139,6 +141,8 @@ class MainWindow(QMainWindow):
         else:
             self.setWindowTitle('PyCinemetrics - %s' % filename)  # 显示当前文件名
             self.filename = filename
+            self.frame_save = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/frame"  # 图片存储路径
+            self.image_save = "./img/" + str(os.path.basename(self.filename )[0:-4])
             cap = cv2.VideoCapture(self.filename)
             self.frameCnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 

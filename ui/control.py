@@ -277,8 +277,6 @@ class Control(QDockWidget):
         self.filename = filename
         self.frame_save = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/frame"  # 图片存储路径
         self.image_save = "./img/" + str(os.path.basename(self.filename )[0:-4])
-        self.parent.frame_save = self.frame_save
-        self.parent.image_save = self.image_save
         self.toggle_buttons(True)
 
     '''
