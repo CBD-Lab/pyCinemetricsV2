@@ -1086,7 +1086,7 @@ class MappingApp(QDialog):
 
     def show_subtitle(self):
         # 构造matedata.csv的完整路径
-        csv_file_path = os.path.join(os.path.dirname(self.image_folder), "matedata.csv")
+        csv_file_path = os.path.join(os.path.dirname(self.image_folder), "metadata.csv")
 
         # 检查文件是否存在
         if os.path.exists(csv_file_path):
