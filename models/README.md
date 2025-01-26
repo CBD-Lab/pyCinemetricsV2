@@ -4,5 +4,6 @@
 - 镜头类型识别：pose net
 - 人脸识别：buffalo_l
 - 语音识别字幕：faster-whisper-base
+- 字幕检测：paddleocr
 - 目标检测：git-base
 - 翻译： opus-mt-en-zh

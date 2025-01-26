@@ -9,6 +9,7 @@
     - Video boundary detection: transnetv2
     - Face recognition: buffalo_l
     - Speech-to-text subtitles: faster-whisper-base
+    - Subtitle detection：paddleocr
     - Object detection: git-base
     - Translation: opus-mt-en-zh
     - Shot type recognition：pose net
@@ -27,6 +28,7 @@
     - 视频边界检测：transnetv2
     - 人脸识别：buffalo_l
     - 语音识别字幕：faster-whisper-base
+    - 字幕检测：paddleocr
     - 目标检测：git-base
     - 翻译： opus-mt-en-zh
     - 镜头类型识别：pose net
