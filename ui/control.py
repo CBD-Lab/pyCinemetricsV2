@@ -260,18 +260,18 @@ class Control(QDockWidget):
     def similarity_toggle_buttons(self, enable, image_names:str):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
-        image_paths = [self.image_save + image_name for image_name in image_names]
+        image_paths = [os.path.join(self.image_save, image_name) for image_name in image_names]
         image_window = ImageDialog(image_paths)
         image_window.exec_()
-        similarity_ImgPath = self.image_save + image_names[0]
+        similarity_ImgPath = os.path.join(self.image_save, image_names[0])
         self.parent.analyze.add_tab_with_image(image_names[0][1:-4], similarity_ImgPath)
 
     def credits_toggle_buttons(self, enable):
         """启用或禁用所有按钮"""
         self.toggle_buttons(enable)
         # 色彩分析之后显示3D图，传入路径即可
-        colors_3D_ImgPath = os.path.join(self.image_save, "Crew.png")
-        self.parent.analyze.add_tab_with_image("Crew", colors_3D_ImgPath)
+        colors_3D_ImgPath = os.path.join(self.image_save, "metadata.png")
+        self.parent.analyze.add_tab_with_image("metadata", colors_3D_ImgPath)
     
     def on_filename_changed(self,filename):
         self.filename = filename
@@ -338,7 +338,6 @@ class Control(QDockWidget):
         subtitleprocesser.subtitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
         subtitleprocesser.finished.connect(lambda: self.subtitles_toggle_buttons(True))
 
-        self.parent.shot_finished.emit()
         bar = pyqtbar(subtitleprocesser)
     
     def translate_srt(self):
@@ -349,7 +348,6 @@ class Control(QDockWidget):
         translate_processor = TranslateSrtProcessor(input_srt_file, self.image_save, self)
         translate_processor.subtitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
         translate_processor.finished.connect(lambda: self.toggle_buttons(True))
-        self.parent.shot_finished.emit()
         bar = pyqtbar(translate_processor)
     
     # 演职员表
@@ -373,9 +371,9 @@ class Control(QDockWidget):
             creditsprocesser = CrewProcessor(self.filename, self.image_save, self.subtitleValue, self.parent,st=int(st),ed=int(ed))
             creditsprocesser.Crewsignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
             creditsprocesser.finished.connect(lambda: self.credits_toggle_buttons(True))
+            bar = pyqtbar(creditsprocesser)
 
-        self.parent.shot_finished.emit()
-        bar = pyqtbar(creditsprocesser)
+
 
     # 字幕卡
     def getintertitle(self,filename):
@@ -387,7 +385,6 @@ class Control(QDockWidget):
         intertitle.intertitlesignal.connect(self.parent.subtitle.textSubtitle.setPlainText)
         intertitle.finished.connect(lambda: self.intertitles_toggle_buttons(True))
 
-        self.parent.shot_finished.emit()
         bar = pyqtbar(intertitle)
 
     # 目标检测
@@ -490,7 +487,7 @@ class Control(QDockWidget):
                 self.show_warning("Error", f"The values of start and end should belong to [0, {self.parent.frameCnt}), and start <= end!")
             else:
                 similarity = Similarity(self.filename, int(st), int(ed), self.similarity_box.currentIndex())
-                image_names = np.array(["/pace.png", "/pace_reversed.png"])
+                image_names = np.array(["pace.png", "pace_reversed.png"])
                 similarity.finished.connect(lambda: self.similarity_toggle_buttons(True, image_names))
                 bar = pyqtbar(similarity)
         else:

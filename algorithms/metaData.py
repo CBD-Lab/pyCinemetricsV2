@@ -85,7 +85,7 @@ class CrewProcessor(QThread):
                     CrewStr = CrewStr + '\n' + str(i) + '\n' + Str
             i = i + self.CrewValue
             percent = round(float((i + 1-self.st) / (self.ed-self.st)) * 100)
-            self.signal.emit(percent, i + 1-self.st, self.ed-self.st, "M")
+            self.signal.emit(percent, i + 1-self.st, self.ed-self.st, "metadata")
         self.signal.emit(101, 101, 101, "metadata")  # 完事了再发一次
 
         if self.is_stop:
@@ -129,8 +129,8 @@ class CrewProcessor(QThread):
             # 将所有行垂直拼接
             stitched_image = np.vstack(stitched_image)
             # 保存拼接后的图像
-            cv2.imwrite(self.save_path + 'metadata.png', stitched_image)
-            print("Stitched image saved as 'metadata.png'")
+            cv2.imwrite(os.path.join(self.save_path, 'metadata.png'), stitched_image)
+            print("Stitched image saved as metadata.png")
 
     def Crew2Srt(self,CrewList, savePath):
 

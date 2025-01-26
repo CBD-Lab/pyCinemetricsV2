@@ -77,7 +77,7 @@ class WordCloud2Frame:
     def wordfrequency(self,filename):
         print(filename)
         data = []
-        with open(filename) as csvfile:
+        with open(filename, 'r', encoding='utf-8') as csvfile:
             csv_reader = csv.reader(csvfile)  # 使用csv.reader读取csvfile中的文件
             # header = next(csv_reader)        # 读取第一行每一列的标题
             for row in csv_reader:  # 将csv 文件中的数据保存到data中

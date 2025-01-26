@@ -66,7 +66,7 @@ class ConcatFrameWindow(QDialog):
 
             # 筛选出编号在 [st, ed] 范围内的图片路径
             images = [
-                self.resize_and_pad(os.path.join(self.folder_path, img), 48 * 6, 27 * 6) for img in image_files
+                self.resize_and_pad(os.path.join(self.folder_path, img), 48 * 3, 27 * 3) for img in image_files
                 if frame_pattern.match(img) and self.st <= int(frame_pattern.match(img).group(1)) <= self.ed
             ]
 

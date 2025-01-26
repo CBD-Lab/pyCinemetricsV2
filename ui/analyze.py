@@ -1,3 +1,4 @@
+import os
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDockWidget, QLabel, QDialog, QVBoxLayout, QTabWidget, QWidget, QHBoxLayout, QPushButton
@@ -24,6 +25,22 @@ class Analyze(QDockWidget):
     def on_filename_changed(self):
         # 清空当前显示的所有标签页
         self.tab_widget.clear()
+
+        image_names = [
+            "shotlength.png", 
+            "subtitle_wc.png",
+            "intertitle.png", 
+            "metadata.png",
+            "wordcloud_ch.png",
+            "shotscale.png",
+            "colors.png",
+            "pace.png", 
+            ]
+        image_paths = [os.path.join(self.parent.image_save, image_name) for image_name in image_names]
+        for idx, img_path in enumerate(image_paths):
+            # print(img_path)
+            if os.path.exists(img_path):
+                self.add_tab_with_image(image_names[idx][0:-4], img_path)
 
     def add_tab_with_image(self, tab_name, image_path):
         # 创建一个标签页来显示图片
