@@ -210,7 +210,7 @@ class VLCPlayer(QtWidgets.QWidget):
 
     def on_video_play_changed(self, pos):
         self.timer.stop()
-        self.mediaplayer.set_position(pos / dict(self.parent.info.properties)['Frame count'])
+        self.mediaplayer.set_position((pos + 1) / dict(self.parent.info.properties)['Frame count'])
         self.timer.start()
         
         # self.mediaplayer.play()
