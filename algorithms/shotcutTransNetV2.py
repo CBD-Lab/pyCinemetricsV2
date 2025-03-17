@@ -333,63 +333,115 @@ class TransNetV2(QThread):
 
     # 画图 和 保存
     def run_moveon(self):
+        try:
+            video_frames = self.video
+            single_frame_predictions = self.single_frame
 
-        video_frames = self.video
-        single_frame_predictions = self.single_frame
+            scenes = self.predictions_to_scenes(single_frame_predictions)
 
-        scenes = self.predictions_to_scenes(single_frame_predictions)
+            # 确保目录存在
+            os.makedirs(self.image_save, exist_ok=True)
+            
+            # 保存场景数据
+            np.savetxt(os.path.join(self.image_save, "video.txt"), scenes, fmt="%d")
 
-        np.savetxt(os.path.join(self.image_save, "video.txt"), scenes, fmt="%d")
+            # 获取帧号
+            number = []
+            try:
+                number = getFrame_number(os.path.join(self.image_save, "video.txt"))
+                print("Frame numbers:", number)
+            except Exception as e:
+                print(f"Error reading frame numbers: {e}")
+                number = []
 
-        number = []
-        number = getFrame_number(os.path.join(self.image_save, "video.txt"))
+            # 计算镜头长度
+            shot_len = []
+            if number:
+                start = -1
+                for idx, i in enumerate(number):
+                    if idx == (len(number) - 1):
+                        shot_len.append([start, i, i - start + 1])
+                    elif idx != 0:
+                        shot_len.append([start, i - 1, i - start])
+                    start = i
 
-        shot_len = []
-        start = -1
-        print(number)
-        for idx, i in enumerate(number):
-
-            if idx == (len(number) - 1):
-                shot_len.append([start, i, i - start + 1])
-            elif idx != 0:
-                shot_len.append([start, i - 1, i - start])
-            start = i
-
-        print("TransNetV2 completed")  # 把画图放进来
-        # 发送shot_finished信号，进行处理
-        self.parent.parent.shot_finished.emit()
-        rs = Resultsave(self.image_save + "/")
-        rs.plot_transnet_shotcut(shot_len)
-        rs.diff_csv(0, shot_len)
-        self.finished.emit(True)
+            print("TransNetV2 completed")  # 把画图放进来
+            
+            # 发送shot_finished信号，进行处理
+            self.parent.parent.shot_finished.emit()
+            
+            # 确保 shot_len 不为空
+            if shot_len:
+                # 使用正确的路径格式
+                rs = Resultsave(self.image_save)
+                try:
+                    rs.plot_transnet_shotcut(shot_len)
+                except Exception as e:
+                    print(f"Error plotting shot length: {e}")
+                
+                try:
+                    rs.diff_csv(0, shot_len)
+                except Exception as e:
+                    print(f"Error saving CSV: {e}")
+            else:
+                print("Warning: No shot length data to process")
+                
+            self.finished.emit(True)
+        except Exception as e:
+            print(f"Error in run_moveon: {e}")
+            self.finished.emit(True)
 
 def getFrame_number(f_path):
-    f = open(f_path, 'r', encoding='utf-8')
-    Frame_number = []
+    try:
+        Frame_number = []
+        with open(f_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    NumList = [int(n) for n in line.split()]
+                    if NumList:  # 确保列表不为空
+                        Frame_number.append(NumList[0])
+                except (ValueError, IndexError) as e:
+                    print(f"Error parsing line in {f_path}: {line.strip()} - {e}")
+                    continue
+        return Frame_number
+    except Exception as e:
+        print(f"Error reading frame numbers from {f_path}: {e}")
+        return []
 
-    for line in f:
-        NumList = [int(n) for n in line.split()]
-        Frame_number.append(NumList[0])
 
-    return Frame_number
-
-
-def transNetV2_run(v_path, parent):#parent定义有点奇怪
+def transNetV2_run(v_path, parent):
     import sys
     import argparse
 
-    file = v_path
-    if os.path.exists(file + ".predictions.txt") or os.path.exists(file + ".scenes.txt"):
-        print(f"[TransNetV2] {file}.predictions.txt or {file}.scenes.txt already exists. "
-              f"Skipping video {file}.", file=sys.stderr)
+    try:
+        file = v_path
+        if os.path.exists(file + ".predictions.txt") or os.path.exists(file + ".scenes.txt"):
+            print(f"[TransNetV2] {file}.predictions.txt or {file}.scenes.txt already exists. "
+                f"Skipping video {file}.", file=sys.stderr)
 
-    # 模型跑完了生成一个分镜帧号的txt
-    model = TransNetV2(file, parent)
-    model.finished.connect(parent.shotcut.setEnabled)
-    model.finished.connect(parent.colors.setEnabled)
-    model.finished.connect(parent.objects.setEnabled)
-    model.finished.connect(parent.subtitleBtn.setEnabled)
-    model.finished.connect(parent.shotscale.setEnabled)
-    bar = pyqtbar(model)
+        # 模型跑完了生成一个分镜帧号的txt
+        model = TransNetV2(file, parent)
+        
+        # 确保信号连接正确
+        try:
+            model.finished.connect(parent.shotcut.setEnabled)
+            model.finished.connect(parent.colors.setEnabled)
+            model.finished.connect(parent.objects.setEnabled)
+            
+            # 检查属性是否存在
+            if hasattr(parent, 'subtitleBtn'):
+                model.finished.connect(parent.subtitleBtn.setEnabled)
+            elif hasattr(parent, 'subtitle'):
+                model.finished.connect(parent.subtitle.setEnabled)
+                
+            model.finished.connect(parent.shotscale.setEnabled)
+        except Exception as e:
+            print(f"Error connecting signals: {e}")
+            
+        bar = pyqtbar(model)
+        return model  # 返回模型对象以便调用者可以进一步处理
+    except Exception as e:
+        print(f"Error in transNetV2_run: {e}")
+        return None
 
 

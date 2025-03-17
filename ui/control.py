@@ -31,6 +31,7 @@ class Control(QDockWidget):
         super().__init__('Control', parent)
         self.parent = parent
         self.filename = filename
+        self.image_save = ""  # 初始化image_save属性
         self.AnalyzeImg = None
         self.AnalyzeImgPath = "" # 好像没有用到
         self.parent.filename_changed.connect(self.on_filename_changed)
@@ -285,16 +286,34 @@ class Control(QDockWidget):
 
     # 分镜 shot
     def shotcut_transNetV2(self):
-        if self.filename:
+        try:
+            if not self.filename:
+                self.shotcut_toggle_buttons(True)
+                return
+                
+            # 确保目录存在
+            if not os.path.exists(self.image_save):
+                os.makedirs(self.image_save, exist_ok=True)
+            if not os.path.exists(self.frame_save):
+                os.makedirs(self.frame_save, exist_ok=True)
+                
             # 分镜
-            model = TransNetV2(self.filename, self)
-            # transNetV2_run(self.filename, self)
-        else:
+            try:
+                # 使用 transNetV2_run 函数而不是直接创建 TransNetV2 对象
+                from algorithms.shotcutTransNetV2 import transNetV2_run
+                model = transNetV2_run(self.filename, self)
+                if model:
+                    # 分镜分析之后显示柱状图图，传入路径即可
+                    model.finished.connect(lambda: self.shotcut_toggle_buttons(True))
+                else:
+                    print("Error: TransNetV2 model creation failed")
+                    self.shotcut_toggle_buttons(True)
+            except Exception as e:
+                print(f"Error in TransNetV2 processing: {e}")
+                self.shotcut_toggle_buttons(True)
+        except Exception as e:
+            print(f"Error in shotcut_transNetV2: {e}")
             self.shotcut_toggle_buttons(True)
-            return
-        # 分镜分析之后显示柱状图图，传入路径即可
-        model.finished.connect(lambda: self.shotcut_toggle_buttons(True))
-        bar = pyqtbar(model)
 
     # shot concat
     def getframeconcat(self):

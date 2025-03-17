@@ -10,51 +10,67 @@ class Resultsave:
     # 其他方法保持不变...
 
     def diff_csv(self, diff, shot_len):
-        # 确定文件路径
-        shotcut_csv_path = os.path.join(self.image_save_path, "shotcut.csv")
-        shotlen_csv_path = os.path.join(self.image_save_path, "shotlength.csv")
-
-        # # 如果文件已经存在，则删除它
-        # if os.path.exists(shotcut_csv_path):
-        #     os.remove(shotcut_csv_path)
-
-        if os.path.exists(shotlen_csv_path):
-            os.remove(shotlen_csv_path)
-
-        # 然后再创建新文件
-        # shotcut_csv = open(shotcut_csv_path, "w+", newline='')
-        shotlen_csv = open(shotlen_csv_path, "w+", newline='')
-        
-        # name1 = ['Id', 'frameDiff']
-        name2 = ['start', 'end', 'length']
-
-        # if diff != 0:
-        #     try:
-        #         writer = csv.writer(shotcut_csv)
-        #         writer.writerow(name1)
-        #         for i in range(len(diff)):
-        #             writer.writerow([i, diff[i]])
-        #     finally:
-        #         shotcut_csv.close()
-
         try:
-            writer = csv.writer(shotlen_csv)
-            writer.writerow(name2)
-            for i in range(len(shot_len)):
-                writer.writerow(shot_len[i])
-        finally:
-            shotlen_csv.close()
+            # 检查 shot_len 是否为空
+            if not shot_len:
+                print("Warning: Empty shot_len data, cannot save CSV")
+                return
+                
+            # 确保目录存在
+            os.makedirs(self.image_save_path, exist_ok=True)
+                
+            # 确定文件路径
+            shotlen_csv_path = os.path.join(self.image_save_path, "shotlength.csv")
+
+            # 如果文件已经存在，则删除它
+            if os.path.exists(shotlen_csv_path):
+                os.remove(shotlen_csv_path)
+
+            # 然后再创建新文件
+            with open(shotlen_csv_path, "w+", newline='') as shotlen_csv:
+                name2 = ['start', 'end', 'length']
+                writer = csv.writer(shotlen_csv)
+                writer.writerow(name2)
+                for i in range(len(shot_len)):
+                    writer.writerow(shot_len[i])
+                    
+            print(f"Shot length CSV saved to {shotlen_csv_path}")
+        except Exception as e:
+            print(f"Error in diff_csv: {e}")
 
     def plot_transnet_shotcut(self, shot_len):
-        shot_id = [i for i in range(len(shot_len))]
-        shot_length = [shot_len[i][2] for i in range(len(shot_len))]
-        plt.clf()
-        # 创建一个黑底的图形
-        plt.figure(figsize=(8, 6))
-        plt.style.use('dark_background')
-        plt.bar(shot_id, shot_length, color='blue')
-        plt.title('shot length',color="white")
-        plt.savefig(os.path.join(self.image_save_path, 'shotlength.png'))
+        try:
+            # 检查 shot_len 是否为空
+            if not shot_len:
+                print("Warning: Empty shot_len data, cannot plot")
+                return
+                
+            shot_id = [i for i in range(len(shot_len))]
+            shot_length = [shot_len[i][2] for i in range(len(shot_len))]
+            
+            # 清除之前的图形
+            plt.clf()
+            plt.close('all')
+            
+            # 创建一个黑底的图形
+            fig = plt.figure(figsize=(8, 6))
+            plt.style.use('dark_background')
+            plt.bar(shot_id, shot_length, color='blue')
+            plt.title('shot length', color="white")
+            
+            # 确保目录存在
+            os.makedirs(os.path.dirname(self.image_save_path), exist_ok=True)
+            
+            # 保存图像
+            output_path = os.path.join(self.image_save_path, 'shotlength.png')
+            plt.savefig(output_path)
+            plt.close(fig)  # 确保图形被关闭
+            
+            print(f"Shot length plot saved to {output_path}")
+        except Exception as e:
+            print(f"Error in plot_transnet_shotcut: {e}")
+            # 确保所有图形都被关闭
+            plt.close('all')
 
     def color_csv(self, colors, colorsC):
         csv_file = open(os.path.join(self.image_save_path, "colors.csv"), "w+", newline='')

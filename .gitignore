@@ -3,6 +3,7 @@
 venv/
 env/
 ENV/
+models/
 
 # Python bytecode
 __pycache__/
@@ -32,3 +33,6 @@ Thumbs.db
 *.tmp
 tmp/
 temp/ 
+
+*.png
+*.txt

@@ -41,23 +41,34 @@ class Timeline(QDockWidget):
         self.paths = []  # 存储图片路径列表，会在draw_pie中用来获取图片路径并分析颜色
 
     def showShot(self, name):
-        # 展示该视频对应的分镜图片
-        self.listWidget.clear()  # 清空当前的列表显示
+        # 清空当前的列表显示
+        self.listWidget.clear()
 
-        if name is None or name == '':  # 如果没有提供有效的名称，则不执行任何操作
+        # 如果没有提供有效的名称，则不执行任何操作
+        if name is None or name == '':
+            return
+
+        # 构建帧图片目录路径
+        frame_dir = os.path.join('img', name, "frame")
+        
+        # 确保目录存在
+        if not os.path.exists(frame_dir):
+            print(f"Warning: Directory '{frame_dir}' does not exist")
+            os.makedirs(frame_dir, exist_ok=True)
             return
 
         try:
             # 获取指定目录中的所有图片文件（该目录下的所有帧）
-            self.imglist = os.listdir('img/' + name + "/frame/")
-        except Exception as e:  # 捕获可能的异常，如目录不存在
-            print(f"Error reading directory 'img/{name}': {e}")
+            self.imglist = os.listdir(frame_dir)
+        except Exception as e:
+            # 捕获可能的异常，如目录不存在
+            print(f"Error reading directory '{frame_dir}': {e}")
             return
 
         pattern = r"frame(\d+)\.png"
         if self.imglist:  # 如果目录中存在图片
             for img in self.imglist:  # 遍历每个图片文件
-                img_path = 'img/' + name + "/frame/" + img  # 构建图片的完整路径
+                img_path = os.path.join('img', name, "frame", img)  # 构建图片的完整路径
                 img_frame_num = re.search(pattern, img).group(1)
                 pixmap = QPixmap(img_path)  # 加载图片为 QPixmap 对象
                 self.paths.append(img_path)  # 保存图片路径到 paths 列表
@@ -73,7 +84,19 @@ class Timeline(QDockWidget):
 
     def on_shot_finished(self):
         # 当镜头分析完成时，重新调用 on_filename_changed 方法
-        self.on_filename_changed(self.parent.filename)
+        try:
+            if hasattr(self.parent, 'filename') and self.parent.filename:
+                # 确保目录存在
+                frame_dir = os.path.join('img', os.path.basename(self.parent.filename)[0:-4], "frame")
+                if not os.path.exists(frame_dir):
+                    os.makedirs(frame_dir, exist_ok=True)
+                    
+                # 调用 on_filename_changed 方法
+                self.on_filename_changed(self.parent.filename)
+            else:
+                print("Warning: No filename available in on_shot_finished")
+        except Exception as e:
+            print(f"Error in on_shot_finished: {e}")
 
     def video_play(self):
         # 获取当前选中的项

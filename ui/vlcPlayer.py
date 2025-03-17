@@ -70,10 +70,8 @@ class VLCPlayer(QtWidgets.QWidget):
         '''
 
         # In this widget, the video will be drawn
-        if platform.system() == 'Darwin':  # for MacOS
-            self.videoframe = QtWidgets.QMacCocoaViewContainer(0)
-        else:
-            self.videoframe = QtWidgets.QFrame()
+        # 在所有平台上使用普通QFrame
+        self.videoframe = QtWidgets.QFrame()
 
         self.icons = {
             'OPEN': self.style().standardIcon(QtWidgets.QStyle.SP_DirOpenIcon),
@@ -183,7 +181,12 @@ class VLCPlayer(QtWidgets.QWidget):
         elif platform.system() == 'Windows':  # for Windows
             self.mediaplayer.set_hwnd(int(self.videoframe.winId()))
         elif platform.system() == 'Darwin':  # for MacOS
-            self.mediaplayer.set_nsobject(int(self.videoframe.winId()))
+            # 在macOS上，我们使用普通QFrame，所以使用set_nsobject
+            try:
+                self.mediaplayer.set_nsobject(int(self.videoframe.winId()))
+            except:
+                # 如果上面的方法失败，尝试使用set_xwindow
+                self.mediaplayer.set_xwindow(int(self.videoframe.winId()))
 
         time.sleep(0.2)
         self.play_pause()

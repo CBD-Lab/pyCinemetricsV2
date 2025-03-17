@@ -2,6 +2,16 @@ import sys
 import os
 import qdarktheme
 import cv2
+
+# 自动设置 Qt 环境变量
+try:
+    from PySide6 import QtCore
+    qt_plugin_path = QtCore.QLibraryInfo.path(QtCore.QLibraryInfo.PluginsPath)
+    os.environ['QT_PLUGIN_PATH'] = qt_plugin_path
+    print(f"已自动设置 QT_PLUGIN_PATH: {qt_plugin_path}")
+except Exception as e:
+    print(f"无法自动设置 Qt 环境变量: {e}")
+
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QMessageBox, QProgressBar
 )
@@ -59,9 +69,10 @@ class MainWindow(QMainWindow):
 
         self.subtitle = Subtitle(self, self.filename)  # 字幕窗口
         self.addDockWidget(Qt.LeftDockWidgetArea, self.subtitle)
-
+        
         self.control = Control(self, self.filename)  # 控制窗口
         self.addDockWidget(Qt.RightDockWidgetArea, self.control)# 停靠到右侧
+        self.control.image_save = self.image_save  # 传递image_save属性
 
         self.analyze = Analyze(self, self.filename)  # 分析窗口
         self.addDockWidget(Qt.RightDockWidgetArea, self.analyze)
@@ -141,11 +152,23 @@ class MainWindow(QMainWindow):
         else:
             self.setWindowTitle('PyCinemetrics - %s' % filename)  # 显示当前文件名
             self.filename = filename
-            self.frame_save = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/frame"  # 图片存储路径
-            self.image_save = "./img/" + str(os.path.basename(self.filename )[0:-4])
-            cap = cv2.VideoCapture(self.filename)
-            self.frameCnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
+            
+            # 创建必要的目录
+            base_dir = "./img/" + str(os.path.basename(self.filename)[0:-4])
+            self.frame_save = base_dir + "/frame"  # 图片存储路径
+            self.image_save = base_dir
+            
+            # 确保目录存在
+            os.makedirs(base_dir, exist_ok=True)
+            os.makedirs(self.frame_save, exist_ok=True)
+            
+            try:
+                cap = cv2.VideoCapture(self.filename)
+                self.frameCnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                cap.release()
+            except Exception as e:
+                print(f"Error opening video file: {e}")
+                self.frameCnt = 0
 
 def main():
     # 启用 Qt 高分辨率显示支持
