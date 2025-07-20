@@ -17,7 +17,8 @@
 4. Potential issues:
     - If `pip install insightface` fails, please install it manually. [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
     - Some models are outdated, so the latest numpy cannot be used. Version 1.26.0 is compatible.
-
+5.License:
+    - This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
 ---
 
 ## 中文版本
