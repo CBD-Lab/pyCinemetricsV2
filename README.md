@@ -1,4 +1,5 @@
-# pyCinemetrics_V2.0
+# pyCinemetrics_V2.0 
+[![CI Build](https://github.com/CBD-Lab/pyCinemetricsV2/actions/workflows/ci.yml/badge.svg)](https://github.com/CBD-Lab/pyCinemetricsV2/actions/workflows/ci.yml)
 
 ## English Version
 
@@ -39,4 +40,3 @@
     - 如果pip install insightface出错，请手动安装。 [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
     - 因为有些模型比较旧，所以不能使用最新的numpy，1.26.0是可用的。
 
-[![CI Build](https://github.com/CBD-Lab/pyCinemetricsV2/actions/workflows/ci.yml/badge.svg)](https://github.com/CBD-Lab/pyCinemetricsV2/actions/workflows/ci.yml)
