@@ -1,0 +1,16 @@
+pyinstaller打包流程：
+pyinstaller main.py;先生成spec文件，然后按项目需求修改spec文件，最终在通过运行spec来打包。
+
+如何减少打包的大小：
+新建一个虚拟环境来专门配置这个项目，在这个虚拟环境中打包。
+
+打包过程中要避免的一些错误：
+1.动态加载的库要手动添加动态加载的库（例如使用importlib或者是在代码中try:import）,应该尽量避免这样写，尽量py文件在开头import module_name
+2.使用系统环境变量的独立的可执行文件要和python脚本一起打包（比如ffmpeg）
+3.打包文件夹需要额外指定
+4.代码中不能使用相对导入（例如加from .xxx import module_name）
+
+Debug方法：
+1.上网查
+2.大部分的解决方法是调整spec文件中的binaries和datas
+3.main.py中的加载界面的pyi_splash包只有在打包时才被导入，运行main.py不要导入
