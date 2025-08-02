@@ -1,3 +1,25 @@
+PyInstaller Packaging Process:  
+1. Run `pyinstaller main.py` to generate the `.spec` file.  
+2. Modify the `.spec` file based on project needs.  
+3. Build using the `.spec` file.  
+
+How to Reduce Package Size:  
+Create a virtual environment specifically for the project and package within it.  
+
+Common Mistakes to Avoid:  
+1. Manually add dynamically loaded libraries (e.g., using `importlib` or `try:import`). Avoid this—import modules directly at the start of the script.  
+2. If using external executables (e.g., `ffmpeg`), bundle them with the Python script.  
+3. Specify additional folders if needed.  
+4. Avoid relative imports (e.g., `from .xxx import module_name`).  
+
+Debugging Methods:  
+1. Search online for solutions.  
+2. Most fixes involve adjusting `binaries` and `datas` in the `.spec` file.  
+3. The `pyi_splash` package (for loading screens) should only be imported during packaging—not when running `main.py` directly.
+
+
+
+----------------------------------
 pyinstaller打包流程：
 pyinstaller main.py;先生成spec文件，然后按项目需求修改spec文件，最终在通过运行spec来打包。
 
@@ -14,3 +36,4 @@ Debug方法：
 1.上网查
 2.大部分的解决方法是调整spec文件中的binaries和datas
 3.main.py中的加载界面的pyi_splash包只有在打包时才被导入，运行main.py不要导入
+
