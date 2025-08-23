@@ -3,17 +3,17 @@
 ## Paper
 ### https://www.sciencedirect.com/science/article/pii/S2352711025002651
 
-### title = {PyCinemetricsV2: Interactive computational film software based on transformers and PySide6},
-### journal = {SoftwareX},
-### volume = {31},
-### pages = {102299},
-### year = {2025},
-### issn = {2352-7110},
-### doi = {https://doi.org/10.1016/j.softx.2025.102299},
-### url = {https://www.sciencedirect.com/science/article/pii/S2352711025002651},
-### author = {Chunfang Li and Yalv Fan and Yushi Shen and Kun Wang and Yuhe Hu and Fei Zhang and Yuchen Pei and Tongtong Zheng and Zhuoqi Shi},
-### keywords = {Git-base, Faster-whisper, PaddleOCR, InsightFace, PySide6},
-### abstract = {Based on feedback from film scholars, we developed PyCinemetricsV2, an upgraded film analytics software. Built on pre-trained AIGC models and PySide6, it offers features such as removing false positives and adding false negatives after TransNetV2 Shot-Boundary Detection (SBD), as well as generating configurable shot mosaic. Using the multimodal Git-base model, it provides descriptions of shot frames and enables open-domain object recognition. Using Faster-Whisper, it delivers more accurate dialog recognition, while PaddleOCR is employed to identify film metadata and intertitles. Based on InsightFace, facial recognition is implemented for the shot-first frames or for fine-grained frames, generating a list of credits. The case study demonstrates its accuracy, efficiency, and improved user experience in film analytics.}
+title = {PyCinemetricsV2: Interactive computational film software based on transformers and PySide6},
+journal = {SoftwareX},
+volume = {31},
+pages = {102299},
+year = {2025},
+issn = {2352-7110},
+doi = {https://doi.org/10.1016/j.softx.2025.102299},
+url = {https://www.sciencedirect.com/science/article/pii/S2352711025002651},
+author = {Chunfang Li and Yalv Fan and Yushi Shen and Kun Wang and Yuhe Hu and Fei Zhang and Yuchen Pei and Tongtong Zheng and Zhuoqi Shi},
+keywords = {Git-base, Faster-whisper, PaddleOCR, InsightFace, PySide6},
+abstract = {Based on feedback from film scholars, we developed PyCinemetricsV2, an upgraded film analytics software. Built on pre-trained AIGC models and PySide6, it offers features such as removing false positives and adding false negatives after TransNetV2 Shot-Boundary Detection (SBD), as well as generating configurable shot mosaic. Using the multimodal Git-base model, it provides descriptions of shot frames and enables open-domain object recognition. Using Faster-Whisper, it delivers more accurate dialog recognition, while PaddleOCR is employed to identify film metadata and intertitles. Based on InsightFace, facial recognition is implemented for the shot-first frames or for fine-grained frames, generating a list of credits. The case study demonstrates its accuracy, efficiency, and improved user experience in film analytics.}
 }
 ## English Version
 
