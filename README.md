@@ -52,3 +52,9 @@ author = {Chunfang Li and Yalv Fan and Yushi Shen and Kun Wang and Yuhe Hu and F
     - 如果pip install insightface出错，请手动安装。 [Link to GitHub](https://github.com/Gourieff/Assets/tree/main/Insightface)
     - 因为有些模型比较旧，所以不能使用最新的numpy，1.26.0是可用的。
 
+软件
+https://pan.baidu.com/s/1_4PZGLwli_wLjY3xEPO6uQ?pwd=2025 提取码: 2025
+<img width="800" height="1012" alt="9ac7776c3366e486298be65a52ceeed7" src="https://github.com/user-attachments/assets/b37b9cb9-7638-45f8-a784-5963964a9e61" />
+
+<img width="750" height="550" alt="50ff759fd78f1d684c02dac4daea9502" src="https://github.com/user-attachments/assets/4371936e-758f-4fac-afea-aa95e7b043ca" />
+
