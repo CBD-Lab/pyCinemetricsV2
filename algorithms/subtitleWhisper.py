@@ -49,8 +49,13 @@ class SubtitleProcessorWhisper(QThread):
             model_load_start_time = time.time()
             # Use faster-whisper for transcription
             self.signal.emit(0, 0, 0, "Model loading...")
-            model = WhisperModel(r"models/faster-whisper-small", device="cpu",
-                                 compute_type="int8")  # Load the small model of faster-whisper
+            # 自动检测 GPU，优先使用 CUDA 加速
+            import torch
+            whisper_device = "cuda" if torch.cuda.is_available() else "cpu"
+            whisper_compute_type = "float16" if whisper_device == "cuda" else "int8"
+            print(f"[Whisper] Using device: {whisper_device}, compute_type: {whisper_compute_type}")
+            model = WhisperModel(r"models/faster-whisper-small", device=whisper_device,
+                                 compute_type=whisper_compute_type)  # Load the small model of faster-whisper
             model_load_end_time = time.time()
             model_load_total_time = model_load_end_time - model_load_start_time
             print(f"Model loaded in {model_load_total_time} seconds")

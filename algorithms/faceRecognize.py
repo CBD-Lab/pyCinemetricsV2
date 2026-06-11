@@ -83,8 +83,18 @@ class FaceDetection(QThread):
         
     # 初始化模型
     def initialize_model(self):
-        app = FaceAnalysis(root = "./", providers=['CPUExecutionProvider'])  # 使用 CPU
-        app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id = -1 强制使用 CPU
+        import onnxruntime as ort
+        # 自动检测 GPU，优先使用 CUDA 加速
+        available_providers = ort.get_available_providers()
+        if 'CUDAExecutionProvider' in available_providers:
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+            print(f"[FaceAnalysis] GPU available, using: {providers}")
+        else:
+            providers = ['CPUExecutionProvider']
+            print(f"[FaceAnalysis] No GPU found, using CPU.")
+        app = FaceAnalysis(root="./", providers=providers)
+        ctx_id = 0 if 'CUDAExecutionProvider' in providers else -1
+        app.prepare(ctx_id=ctx_id, det_size=(640, 640))
         return app
 
     # 计算人脸检测框面积
