@@ -1,7 +1,5 @@
 import os
 import csv
-import matplotlib
-matplotlib.use('Agg')  # 使用非交互式后端，避免非主线程绘图警告
 import matplotlib.pyplot as plt
 
 # 输入图片数据, 可以讲数据绘制为图像, 和存到CSV

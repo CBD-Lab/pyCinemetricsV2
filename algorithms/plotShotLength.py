@@ -125,17 +125,6 @@ class TransNetPlot(QDialog):
         """绘制 start 到 end 范围的条形图和嵌入图像"""
         self.ax.clear()
 
-        # 重置可能被全局 dark_background 样式影响的颜色（原因：resultSave.py 使用了 plt.style.use('dark_background')）
-        # 将刻度、标签、标题颜色强制设为黑色，确保在白底上可见
-        self.ax.tick_params(axis='x', colors='black')
-        self.ax.tick_params(axis='y', colors='black')
-        self.ax.xaxis.label.set_color('black')
-        self.ax.yaxis.label.set_color('black')
-        self.ax.title.set_color('black')
-        # 恢复坐标轴的边框颜色
-        for spine in self.ax.spines.values():
-            spine.set_color('black')
-
         # 筛选 start 到 end 范围的镜头
         filtered_shot_len = [
             (idx, shot[2]) for idx, shot in enumerate(self.shot_len)

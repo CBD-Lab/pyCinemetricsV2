@@ -10,7 +10,6 @@ import torch.cuda
 import nltk
 import matplotlib.pyplot as plt
 import jieba.posseg as pseg
-import warnings
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
 from nltk.corpus import stopwords
@@ -25,9 +24,6 @@ from algorithms.wordCloud2Frame import WordCloud2Frame
 from ui.progressBar import *
 from collections import Counter
 from PIL import Image
-
-# 抑制 GitProcessor legacy 弃用警告（legacy=False 会导致 input_ids 缺失）
-warnings.filterwarnings("ignore", message="Legacy behavior is being used")
 
 # 已经下载在./models/nltk_data中
 # nltk.download('punkt_tab')
@@ -235,17 +231,15 @@ class ObjectDetection(QThread):
                             # 加载图片
                             image = Image.open(image_path).convert("RGB")  # 确保图片为 RGB 格式
                             
-                            # 预处理图片（将输入张量移到与模型相同的设备，避免 CPU/GPU 不匹配）
+                            # 预处理图片
                             inputs = processor(images=image, return_tensors="pt")
-                            inputs = {k: v.to(device) for k, v in inputs.items()}
                             
                             # 生成图像描述
                             output_ids = subtitle_model.generate(**inputs, max_length=100, num_beams=4)
                             caption = processor.decode(output_ids[0], skip_special_tokens=True)
 
-                            # 对文本进行分词（将输入张量移到 GPU）
+                            # 对文本进行分词
                             translated = translate_tokenizer(caption, return_tensors="pt", padding=True)
-                            translated = {k: v.to(device) for k, v in translated.items()}
 
                             # 使用模型进行翻译
                             translated_output = translate_model.generate(**translated)
@@ -259,9 +253,10 @@ class ObjectDetection(QThread):
                             # print(f"图片: {filename} 的描述已保存到 CSV 文件")
                         
                         except Exception as e:
-                            # 如果图片加载或处理失败，打印错误信息后跳过继续处理下一张
+                            # 如果图片加载或处理失败，打印错误信息
                             print(f"处理图片 {filename} 时出错: {e}")
-                            continue
+                            self.finished.emit(True)
+                            break
                     percent = round(float(task_id / total_number) * 100)
                     self.signal.emit(percent, task_id, total_number, "image2Text")  # 发送实时任务进度和总任务进度
                     task_id += 1

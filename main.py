@@ -2,7 +2,6 @@ import sys
 import os
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"  # 抑制 FFmpeg 解码器警告输出
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
-os.environ["AV_LOG_FORCE_NOCOLOR"] = "1"     # FFmpeg 日志不输出颜色码
 import qdarktheme
 import cv2
 cv2.setLogLevel(0)  # 进一步抑制 OpenCV 日志
