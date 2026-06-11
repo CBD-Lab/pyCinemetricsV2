@@ -1,7 +1,17 @@
-from concurrent.futures import ThreadPoolExecutor
 import os
 import sys
 
+# === 抑制第三方库的 INFO/WARNING 输出（必须在其他 import 之前设置） ===
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"      # 关闭 TensorFlow oneDNN 提示
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"        # 屏蔽 TensorFlow INFO/WARNING
+os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"     # 抑制 FFmpeg 解码器警告输出
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"          # 关闭 OpenCV 日志
+os.environ["FLAGS_use_mkldnn"] = "0"            # 禁用 OneDNN，避免 PaddlePaddle 推理 bug
+
+import warnings
+warnings.filterwarnings("ignore", message=".*ccache.*")
+
+from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QProgressBar
@@ -9,14 +19,20 @@ import cv2
 import qdarktheme
 
 from ui.analyze import Analyze
-from ui.control import Control
 from ui.info import Info
 from ui.subtitle import Subtitle
 from ui.timeline import Timeline
 from ui.vlcPlayer import VLCPlayer
-os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"  # 抑制 FFmpeg 解码器警告输出
-os.environ["OPENCV_LOG_LEVEL"] = "OFF"
-os.environ["FLAGS_use_mkldnn"] = "0"  # 禁用 OneDNN，避免 PaddlePaddle 3.0.0rc1 推理 bug
+
+# PaddlePaddle 的 C++ 扩展会在 import 时向 stderr 输出"找不到文件"等日志，
+# glog 环境变量无法在 Python 层拦截，这里临时重定向 stderr 来彻底屏蔽
+_stderr = sys.stderr
+sys.stderr = open(os.devnull, 'w')
+try:
+    from ui.control import Control  # 该模块间接导入 PaddleOCR → PaddlePaddle
+finally:
+    sys.stderr.close()
+    sys.stderr = _stderr
 
 cv2.setLogLevel(0)  # 进一步抑制 OpenCV 日志
 
