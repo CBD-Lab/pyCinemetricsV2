@@ -184,6 +184,14 @@ class TransNetV2(QThread):
     def run(self):
         self.signal.emit(0, 0, 0, "Model loading...")
 
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            print(f"[TransNetV2] GPU(s) available: {gpus}")
+        else:
+            print("[TransNetV2] No GPU found, using CPU.")
+
         try:
             self.model = tf.saved_model.load(self.model_dir)
             print(self.model_dir)

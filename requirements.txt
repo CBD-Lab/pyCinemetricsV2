@@ -32,7 +32,7 @@ fsspec==2024.2.0
 future==1.0.0
 gast==0.4.0
 google-auth==2.37.0
-google-auth-oauthlib==1.0.0
+google-auth-oauthlib==0.4.6
 google-pasta==0.2.0
 googletrans==4.0.0rc1
 grpcio==1.68.0
@@ -56,7 +56,8 @@ jaxlib==0.4.30
 jieba==0.42.1
 Jinja2==3.1.3
 joblib==1.4.2
-keras==3.8.0
+keras==2.10.0
+Keras-Preprocessing==1.1.2
 kiwisolver==1.4.7
 lazy_loader==0.4
 libclang==18.1.1
@@ -96,7 +97,7 @@ pandas==2.2.3
 pillow==10.4.0
 prettytable==3.12.0
 proglog==0.1.10
-protobuf>=3.20.3,<6.0.0
+protobuf==3.19.6
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
 pyclipper==1.3.0.post6
@@ -141,11 +142,14 @@ sniffio==1.3.1
 soupsieve==2.6
 stringzilla==3.11.3
 sympy==1.13.1
-tensorboard==2.18.0
-tensorboard-data-server==0.7.2
-tensorflow==2.18.0
+tensorboard==2.10.1
+tensorboard-data-server==0.6.1
+tensorboard-plugin-wit==1.8.1
+tensorflow-cpu==2.10.0
+tensorflow-directml-plugin==0.4.0.dev230202
+tensorflow-estimator==2.10.0
+tensorflow-intel==2.10.0
 tensorflow-io-gcs-filesystem==0.31.0
-tensorflow_intel==2.18.0
 termcolor==2.5.0
 threadpoolctl==3.5.0
 tifffile==2024.9.20
