@@ -4,6 +4,7 @@ import tensorflow as tf
 import cv2
 from algorithms.resultSave import Resultsave
 from ui.progressBar import *
+from helper import suppress_c_stderr
 
 class TransNetV2(QThread):
     #  通过类成员对象定义信号对象
@@ -218,19 +219,20 @@ class TransNetV2(QThread):
 
         print("[TransNetV2] Extracting frames from {}".format(self.video_fn))
         self.signal.emit(0, 0, 0, "Video processing...")
-        cap = cv2.VideoCapture(self.video_fn)
-        if not cap.isOpened():
-            print("Error: Could not open video.")
-            exit()
-        frames = []
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = cv2.resize(frame, (48, 27))
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(frame)
-        cap.release()
+        with suppress_c_stderr():
+            cap = cv2.VideoCapture(self.video_fn)
+            if not cap.isOpened():
+                print("Error: Could not open video.")
+                exit()
+            frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame = cv2.resize(frame, (48, 27))
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames.append(frame)
+            cap.release()
         self.video = np.array(frames)
         self.predict_video(self.video)
         self.signal.emit(101, 101, 101,"shotcut")  # 完事了再发一次
@@ -324,15 +326,16 @@ class TransNetV2(QThread):
         number = self.pred_window_to_shotList(pred, prev_count)
         print(number)
 
-        cap = cv2.VideoCapture(self.video_fn)
-        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        frame_len = len(str((int)(frame_count)))
-        os.makedirs(self.frame_save, exist_ok=True)
+        with suppress_c_stderr():
+            cap = cv2.VideoCapture(self.video_fn)
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            frame_len = len(str((int)(frame_count)))
+            os.makedirs(self.frame_save, exist_ok=True)
 
-        # 后续的分镜图片
-        for i in number:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            _, img = cap.read()
+            # 后续的分镜图片
+            for i in number:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+                _, img = cap.read()
             j = ('%0{}d'.format(frame_len)) % i
             png_save_path = os.path.join(self.frame_save, f"frame{str(j)}.png")
             if not os.path.exists(png_save_path):

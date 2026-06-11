@@ -2,6 +2,7 @@ import sys
 import os
 import platform
 import importlib
+import contextlib
 
 
 def resource_path(relative_path):
@@ -37,3 +38,21 @@ class Splash:
     def update(self, text):
         if self.splash:
             self.splash.update_text(text)
+
+
+@contextlib.contextmanager
+def suppress_c_stderr():
+    """抑制 C 库（如 FFmpeg）直接输出到 stderr 的错误/警告信息。
+    
+    用于抑制类似 "[rv40 @ ...] Invalid decoder state: B-frame without reference data" 这类消息。
+    通过重定向底层文件描述符实现（不影响 Python 的 logging/stderr）。
+    """
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stderr = os.dup(2)  # 复制当前 stderr 文件描述符
+    os.dup2(devnull, 2)     # 将 stderr 重定向到 null
+    try:
+        yield
+    finally:
+        os.dup2(old_stderr, 2)  # 恢复原始 stderr
+        os.close(devnull)
+        os.close(old_stderr)
