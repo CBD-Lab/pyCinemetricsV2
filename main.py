@@ -1,7 +1,10 @@
 import sys
 import os
+os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"  # 抑制 FFmpeg 解码器警告输出
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 import qdarktheme
 import cv2
+cv2.setLogLevel(0)  # 进一步抑制 OpenCV 日志
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QMessageBox, QProgressBar
 )
@@ -14,7 +17,6 @@ from ui.subtitle import Subtitle
 from concurrent.futures import ThreadPoolExecutor
 from ui.vlcPlayer import VLCPlayer
 from ui.control import Control
-
 
 
 # from ui.subtitleEasyOcr import getsubtitleEasyOcr,subtitle2Srt
@@ -143,6 +145,8 @@ class MainWindow(QMainWindow):
             self.filename = filename
             self.frame_save = "./img/" + str(os.path.basename(self.filename )[0:-4]) + "/frame"  # 图片存储路径
             self.image_save = "./img/" + str(os.path.basename(self.filename )[0:-4])
+            os.makedirs(self.frame_save, exist_ok=True)
+            os.makedirs(self.image_save, exist_ok=True)
             cap = cv2.VideoCapture(self.filename)
             self.frameCnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 
