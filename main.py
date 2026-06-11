@@ -1,22 +1,25 @@
-import sys
+from concurrent.futures import ThreadPoolExecutor
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QProgressBar
+import cv2
+import qdarktheme
+
+from ui.analyze import Analyze
+from ui.control import Control
+from ui.info import Info
+from ui.subtitle import Subtitle
+from ui.timeline import Timeline
+from ui.vlcPlayer import VLCPlayer
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"  # 抑制 FFmpeg 解码器警告输出
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
-import qdarktheme
-import cv2
+os.environ["FLAGS_use_mkldnn"] = "0"  # 禁用 OneDNN，避免 PaddlePaddle 3.0.0rc1 推理 bug
+
 cv2.setLogLevel(0)  # 进一步抑制 OpenCV 日志
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QMessageBox, QProgressBar
-)
-from PySide6.QtGui import QAction
-from PySide6.QtCore import Qt, Signal
-from ui.timeline import Timeline
-from ui.info import Info
-from ui.analyze import Analyze
-from ui.subtitle import Subtitle
-from concurrent.futures import ThreadPoolExecutor
-from ui.vlcPlayer import VLCPlayer
-from ui.control import Control
+
 
 
 # from ui.subtitleEasyOcr import getsubtitleEasyOcr,subtitle2Srt

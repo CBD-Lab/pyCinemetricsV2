@@ -58,7 +58,7 @@ class MultiCsvViewerDialog(QDialog):
 
     def load_csv_to_table(self, csv_path, table_widget):
         try:
-            with open(csv_path, 'r') as csvfile:
+            with open(csv_path, 'r', encoding='utf-8') as csvfile:
                 reader = csv.reader(csvfile)
                 rows = list(reader)
 
@@ -116,7 +116,7 @@ class MultiCsvViewerDialog(QDialog):
                 sheet = wb.create_sheet(title=sheet_name)
 
                 # Read the CSV file and add its content to the worksheet
-                with open(csv_path, 'r') as infile:
+                with open(csv_path, 'r', encoding='utf-8') as infile:
                     reader = csv.reader(infile)
                     max_column_width = []
 

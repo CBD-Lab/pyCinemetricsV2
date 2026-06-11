@@ -7,7 +7,66 @@ import math
 import numpy as np
 import chardet
 import pandas as pd
-from insightface.app import FaceAnalysis#注意导入的顺序否则可能会报错
+# 修复 insightface 模型加载：
+# 1. model_zoo 路由兼容 192x192 等非 112x112 输入模型
+# 2. face_align 只支持 112x112 crop，所以优先加载 112x112 的 w600k_r50 作为 recognition
+from insightface.model_zoo import model_zoo as _mz
+
+def _patched_get_model(self):
+    session = _mz.onnxruntime.InferenceSession(self.onnx_file, None)
+    input_cfg = session.get_inputs()[0]
+    input_shape = input_cfg.shape
+    outputs = session.get_outputs()
+    if len(outputs) >= 5:
+        return _mz.SCRFD(model_file=self.onnx_file, session=session)
+    elif len(input_shape) >= 4 and input_shape[2] == input_shape[3]:
+        return _mz.ArcFaceONNX(model_file=self.onnx_file, session=session)
+    else:
+        raise RuntimeError('error on model routing')
+_mz.ModelRouter.get_model = _patched_get_model
+
+def _patched_get_model_func(name, **kwargs):
+    root = kwargs.get('root', '~/.insightface/models')
+    root = os.path.expanduser(root)
+    if not name.endswith('.onnx'):
+        model_dir = os.path.join(root, name)
+        model_file = _mz.glob.glob("%s/*.onnx" % model_dir)
+        model_file = sorted(model_file)[-1] if model_file else None
+        if model_file is None:
+            return None
+    else:
+        model_file = name
+    assert os.path.isfile(model_file), 'model should be file'
+    router = _mz.ModelRouter(model_file)
+    model = router.get_model()
+    return model
+_mz.get_model = _patched_get_model_func
+
+from insightface.app import FaceAnalysis  # 注意导入的顺序否则可能会报错
+
+# 优先加载 112x112 模型：face_align 硬限制 image_size==112
+_original_init = FaceAnalysis.__init__
+def _patched_init(self, name, root='~/.insightface/models'):
+    self.models = {}
+    import glob as _glob
+    root = os.path.expanduser(root)
+    onnx_files = _glob.glob(os.path.join(root, name, '*.onnx'))
+    # 逆序排列：w600k_r50 > det_10g > 2d106det > 1k3d68
+    # 确保 112x112 的 w600k_r50 先于 192x192 的 1k3d68 注册 recognition
+    onnx_files = sorted(onnx_files, reverse=True)
+    for onnx_file in onnx_files:
+        if onnx_file.find('_selfgen_') > 0:
+            continue
+        model = _mz.get_model(onnx_file)
+        if model.taskname not in self.models:
+            print('find model:', onnx_file, model.taskname)
+            self.models[model.taskname] = model
+        else:
+            print('duplicated model task type, ignore:', onnx_file, model.taskname)
+            del model
+    assert 'detection' in self.models
+    self.det_model = self.models['detection']
+FaceAnalysis.__init__ = _patched_init
 from sklearn.cluster import DBSCAN
 from scipy.signal import argrelextrema
 from sklearn.decomposition import PCA
@@ -83,7 +142,7 @@ class FaceDetection(QThread):
         
     # 初始化模型
     def initialize_model(self):
-        app = FaceAnalysis(root = "./", providers=['CPUExecutionProvider'])  # 使用 CPU
+        app = FaceAnalysis(name="buffalo_l", root="./models")  # 使用 CPU
         app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id = -1 强制使用 CPU
         return app
 
@@ -111,6 +170,8 @@ class FaceDetection(QThread):
         return ear
 
     def is_eyes_open(self, landmarks, eye_threshold=0.2):
+        if landmarks is None or len(landmarks) < 48:
+            return False  # 无 landmark 数据，默认判为闭眼
         left_eye = landmarks[36:42]  # 左眼关键点
         right_eye = landmarks[42:48]  # 右眼关键点
         left_ear = self.calculate_ear(left_eye)
@@ -119,6 +180,8 @@ class FaceDetection(QThread):
 
     # 判断是否为正脸
     def is_frontal_face(self, pose, yaw_threshold=15, pitch_threshold=15):
+        if pose is None:
+            return False  # 无姿态数据，默认判为非正脸
         yaw, pitch, roll = pose
         return abs(yaw) < yaw_threshold and abs(pitch) < pitch_threshold
 
@@ -198,8 +261,8 @@ class FaceDetection(QThread):
                 features.append(face.normed_embedding)  # 提取特征
                 face_images.append(face.bbox)         # 获取人脸边框
                 original_images.append((img, img_path))  # 原图及其路径保存
-                face_poses.append(face.pose)          # 保存姿态信息
-                eye_statuses.append(self.is_eyes_open(face.landmark_2d_106))  # 判断眼睛状态
+                face_poses.append(getattr(face, 'pose', None))  # Face 无 pose，用 None
+                eye_statuses.append(self.is_eyes_open(getattr(face, 'landmark_2d_106', None)))  # 判断眼睛状态
             task_id += 1
             percent = round(float(task_id / total_number) * 100)
             self.signal.emit(percent, task_id, total_number, "faceDetect")  # 发送实时任务进度和总任务进度
