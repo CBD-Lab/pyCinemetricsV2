@@ -145,10 +145,8 @@ sympy==1.13.1
 tensorboard==2.10.1
 tensorboard-data-server==0.6.1
 tensorboard-plugin-wit==1.8.1
-tensorflow-cpu==2.10.0
-tensorflow-directml-plugin==0.4.0.dev230202
+tensorflow==2.10.0
 tensorflow-estimator==2.10.0
-tensorflow-intel==2.10.0
 tensorflow-io-gcs-filesystem==0.31.0
 termcolor==2.5.0
 threadpoolctl==3.5.0
@@ -156,9 +154,10 @@ tifffile==2024.9.20
 tiktoken==0.8.0
 tokenizers==0.21.0
 tomli==2.2.1
-torch==2.5.1
-torchaudio==2.5.1
-torchvision==0.20.1
+# PyTorch CUDA 版 (请从 PyTorch 官方 index 安装):
+# torch --index-url https://download.pytorch.org/whl/cu128
+# torchvision --index-url https://download.pytorch.org/whl/cu128
+# torchaudio --index-url https://download.pytorch.org/whl/cu128
 tqdm==4.67.1
 transformers==4.47.1
 typing_extensions==4.12.2
