@@ -7,14 +7,29 @@ import math
 import numpy as np
 import chardet
 import pandas as pd
+
+# 让 onnxruntime-gpu 能找到 PyTorch 自带的 CUDA/cuDNN DLL
+try:
+    import torch
+    _torch_lib = os.path.join(os.path.dirname(torch.__file__), 'lib')
+    os.environ['PATH'] = _torch_lib + os.pathsep + os.environ.get('PATH', '')
+except ImportError:
+    pass
+
 # 修复 insightface 模型加载：
 # 1. model_zoo 路由兼容 192x192 等非 112x112 输入模型
 # 2. face_align 只支持 112x112 crop，所以优先加载 112x112 的 w600k_r50 作为 recognition
 from insightface.model_zoo import model_zoo as _mz
 
 def _patched_get_model(self):
-    # 使用 DirectML (GPU)，不可用时回退 CPU
-    providers = ['DmlExecutionProvider', 'CPUExecutionProvider']
+    # 自动选择最佳 GPU 后端：CUDA > DirectML > CPU
+    available = _mz.onnxruntime.get_available_providers()
+    if 'CUDAExecutionProvider' in available:
+        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+    elif 'DmlExecutionProvider' in available:
+        providers = ['DmlExecutionProvider', 'CPUExecutionProvider']
+    else:
+        providers = ['CPUExecutionProvider']
     session = _mz.onnxruntime.InferenceSession(self.onnx_file, None, providers=providers)
     input_cfg = session.get_inputs()[0]
     input_shape = input_cfg.shape
@@ -145,7 +160,10 @@ class FaceDetection(QThread):
     # 初始化模型
     def initialize_model(self):
         app = FaceAnalysis(name="buffalo_l", root="./models")
-        app.prepare(ctx_id=0, det_size=(640, 640))  # ctx_id=0 使用 GPU
+        available = _mz.onnxruntime.get_available_providers()
+        has_gpu = 'CUDAExecutionProvider' in available or 'DmlExecutionProvider' in available
+        ctx_id = 0 if has_gpu else -1
+        app.prepare(ctx_id=ctx_id, det_size=(640, 640))
         return app
 
     # 计算人脸检测框面积
