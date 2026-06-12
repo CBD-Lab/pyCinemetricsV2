@@ -13,7 +13,9 @@ import pandas as pd
 from insightface.model_zoo import model_zoo as _mz
 
 def _patched_get_model(self):
-    session = _mz.onnxruntime.InferenceSession(self.onnx_file, None)
+    # 优先使用 CUDA，不可用时回退 CPU
+    providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+    session = _mz.onnxruntime.InferenceSession(self.onnx_file, None, providers=providers)
     input_cfg = session.get_inputs()[0]
     input_shape = input_cfg.shape
     outputs = session.get_outputs()
@@ -142,8 +144,8 @@ class FaceDetection(QThread):
         
     # 初始化模型
     def initialize_model(self):
-        app = FaceAnalysis(name="buffalo_l", root="./models")  # 使用 CPU
-        app.prepare(ctx_id=-1, det_size=(640, 640))  # ctx_id = -1 强制使用 CPU
+        app = FaceAnalysis(name="buffalo_l", root="./models")
+        app.prepare(ctx_id=0, det_size=(640, 640))  # ctx_id=0 使用 GPU
         return app
 
     # 计算人脸检测框面积
