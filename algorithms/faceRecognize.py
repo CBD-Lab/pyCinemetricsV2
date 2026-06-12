@@ -13,8 +13,8 @@ import pandas as pd
 from insightface.model_zoo import model_zoo as _mz
 
 def _patched_get_model(self):
-    # 优先使用 CUDA，不可用时回退 CPU
-    providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+    # 使用 DirectML (GPU)，不可用时回退 CPU
+    providers = ['DmlExecutionProvider', 'CPUExecutionProvider']
     session = _mz.onnxruntime.InferenceSession(self.onnx_file, None, providers=providers)
     input_cfg = session.get_inputs()[0]
     input_shape = input_cfg.shape
