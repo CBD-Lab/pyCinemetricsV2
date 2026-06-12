@@ -81,8 +81,7 @@ class TransNetPlot(QDialog):
         self.bar_color = "blue"
         self.bg_color = "white"
 
-        # 绘制图表
-        self.plotShotlen()
+        # 不在 __init__ 中绘制，避免与外部显式调用冲突导致偶现坐标轴消失
 
     # def plotShotlen(self):
     #     """绘制条形图和嵌入图像"""
@@ -160,7 +159,8 @@ class TransNetPlot(QDialog):
                         image_path = os.path.join(self.image_save_path, "frame", img_files[shot_idx])
                         img = Image.open(image_path).resize((96, 54))
                         imgbox = OffsetImage(np.array(img), zoom=0.5)
-                        ab = AnnotationBbox(imgbox, (shot_idx, shot_length[idx] + 2), frameon=False)
+                        ab = AnnotationBbox(imgbox, (shot_idx, shot_length[idx]), frameon=False,
+                                           box_alignment=(0.5, -0.1))  # 图片底部对齐柱顶，不撑破坐标轴
                         self.ax.add_artist(ab)
             except Exception as e:
                 print(f"Error adding images: {e}")
@@ -168,6 +168,9 @@ class TransNetPlot(QDialog):
         # 设置背景颜色
         self.figure.patch.set_facecolor(self.bg_color)
         self.ax.set_facecolor(self.bg_color)
+
+        # tight_layout 确保坐标轴标签不被截断
+        self.figure.tight_layout()
 
         # 刷新画布
         self.canvas.draw()
