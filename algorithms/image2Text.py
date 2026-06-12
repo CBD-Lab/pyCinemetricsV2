@@ -233,6 +233,7 @@ class ObjectDetection(QThread):
                             
                             # 预处理图片
                             inputs = processor(images=image, return_tensors="pt")
+                            inputs = {k: v.to(device) for k, v in inputs.items()}  # 输入移到 GPU
                             
                             # 生成图像描述
                             output_ids = subtitle_model.generate(**inputs, max_length=100, num_beams=4)
@@ -240,6 +241,7 @@ class ObjectDetection(QThread):
 
                             # 对文本进行分词
                             translated = translate_tokenizer(caption, return_tensors="pt", padding=True)
+                            translated = {k: v.to(device) for k, v in translated.items()}  # 输入移到 GPU
 
                             # 使用模型进行翻译
                             translated_output = translate_model.generate(**translated)
