@@ -315,13 +315,24 @@ class FaceDetection(QThread):
         return y[window_len - 1:-window_len + 1]
 
     def process_video_by_segments(self, video_path, txt_path, output_dir):
-        """根据帧号范围处理视频并从每个镜头区域提取5张图片（顺序扫描，无随机seek）"""
+        """根据帧号范围处理视频并从每个镜头区域提取5张图片"""
 
+        # 删除目录及其所有内容
         if os.path.exists(output_dir):
             shutil.rmtree(output_dir)
+
+        # 创建新的空目录
         os.makedirs(output_dir)
 
         filename = os.path.splitext(os.path.basename(video_path))[0]
+
+        # 加载视频
+        cap = cv2.VideoCapture(video_path)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        print(f"视频总帧数: {frame_count}, 原始分辨率: {original_width}x{original_height}")
 
         # 读取txt文件中的帧号范围
         try:
@@ -331,66 +342,45 @@ class FaceDetection(QThread):
             print(f"读取文件失败: {e}")
             return
 
-        cap = cv2.VideoCapture(video_path)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        print(f"视频总帧数: {frame_count}, 原始分辨率: {original_width}x{original_height}")
+        # 进度条设置
+        total_number = len(segments)  # 总任务数
+        task_id = 0  # 子任务序号
 
-        # 预计算所有目标帧号 → 输出路径
-        target_map = {}  # frame_pos -> output_path
         for seg_idx, (start_frame, end_frame) in enumerate(segments):
             if start_frame >= frame_count or end_frame >= frame_count or start_frame > end_frame:
+                print(f"段 {seg_idx} 的帧号范围无效: {start_frame}-{end_frame}")
                 continue
+
+            print(f"处理第 {seg_idx} 段: 帧号范围 {start_frame}-{end_frame}")
+
+            # 计算该段的帧数并划分为5等分
             total_frames_in_segment = end_frame - start_frame + 1
             if total_frames_in_segment < 5:
+                print(f"段 {seg_idx} 的帧数少于5帧，无法按5分位提取，跳过该段")
                 continue
-            for i in range(5):
-                frame_pos = start_frame + (total_frames_in_segment * i) // 5
-                output_path = os.path.join(output_dir,
-                    f"{filename}_segment_{seg_idx}_frame_{frame_pos}_shot_{i+1}.jpg")
-                target_map[frame_pos] = output_path
 
-        if not target_map:
-            cap.release()
-            print("没有需要提取的帧")
-            return
+            # 计算每一分位的位置
+            frame_positions = [start_frame + (total_frames_in_segment * i) // 5 for i in range(5)]
 
-        total_targets = len(target_map)
-        max_target = max(target_map.keys())
+            # 提取5个位置的帧并保存
+            for i, frame_pos in enumerate(frame_positions):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+                ret, frame = cap.read()
+                if not ret:
+                    print(f"读取帧 {frame_pos} 失败，跳过")
+                    continue
 
-        # 按帧号排序目标帧，方便顺序扫描时逐个匹配
-        sorted_targets = sorted(target_map.items())  # [(frame_pos, output_path), ...]
-        del target_map  # 释放 dict，后续只用 sorted_targets
+                # 直接保存原始分辨率的图像
+                output_path = os.path.join(output_dir, f"{filename}_segment_{seg_idx}_frame_{frame_pos}_shot_{i+1}.jpg")
+                cv2.imwrite(output_path, frame)  # 保存图像
 
-        print(f"共 {total_targets} 个目标帧，顺序扫描中...")
-        target_idx = 0
-        frame_idx = 0
-        saved = 0
-        last_percent = -1
+            task_id += 1
+            percent = round(float(task_id / total_number) * 100)
+            self.signal.emit(percent, task_id, total_number, "ExtractKeyFrame")  # 发送实时任务进度和总任务进度
 
-        while saved < total_targets and frame_idx <= max_target:
-            if self.is_stop:
-                break
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            while target_idx < total_targets and frame_idx == sorted_targets[target_idx][0]:
-                cv2.imwrite(sorted_targets[target_idx][1], frame)
-                saved += 1
-                target_idx += 1
-
-            frame_idx += 1
-
-            percent = int(float(saved) / total_targets * 100)
-            if percent != last_percent:
-                self.signal.emit(percent, saved, total_targets, "ExtractKeyFrame")
-                last_percent = percent
-
-        self.signal.emit(99, saved, total_targets, "ExtractKeyFrame")
+        self.signal.emit(99, task_id, total_number, "ExtractKeyFrame")  # 发送任务完成信号
         cap.release()
-        print(f"提取完成: {saved}/{total_targets} 帧, 结果保存在: {output_dir}")
+        print(f"所有段处理完成，结果保存在: {output_dir}")
 
 
     # 保存最终结果
