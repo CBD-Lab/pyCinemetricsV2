@@ -61,7 +61,6 @@ _mz.get_model = _patched_get_model_func
 
 from insightface.app import FaceAnalysis  # 注意导入的顺序否则可能会报错
 
-# 优先加载 112x112 模型：face_align 硬限制 image_size==112
 _original_init = FaceAnalysis.__init__
 def _patched_init(self, name, root='~/.insightface/models'):
     self.models = {}
