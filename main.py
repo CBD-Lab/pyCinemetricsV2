@@ -11,6 +11,12 @@ os.environ["FLAGS_use_mkldnn"] = "0"            # 禁用 OneDNN，避免 PaddleP
 import warnings
 warnings.filterwarnings("ignore", message=".*ccache.*")
 
+# 兼容 Python 3.10: PyTorch 2.12 nightly 使用了 typing.Self (Python 3.11+ 才有)
+import typing
+import typing_extensions
+if not hasattr(typing, 'Self'):
+    typing.Self = typing_extensions.Self
+
 from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
